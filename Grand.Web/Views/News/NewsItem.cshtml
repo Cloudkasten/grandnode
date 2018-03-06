@@ -57,7 +57,7 @@
                     </div>
                 </form>
             </fieldset>
-                        if (Model.Comments.Count > 0)
+                        if (Model.Comments.Any())
                         {
                             <div class="comment-list text-xs-center text-md-left">
                                 <h5><strong>@T("News.Comments")</strong></h5>
@@ -75,7 +75,7 @@
                                                     <span class="username">@(comment.CustomerName)</span>
                                                 </h5>
                                             }
-                                            <div class="card-block flex-row row">
+                                            <div class="card-body flex-row row">
                                                 @if (!String.IsNullOrEmpty(comment.CustomerAvatarUrl))
                                                 {
                                                     <div class="col-sm-3 col-12 comment-info">

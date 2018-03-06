@@ -40,9 +40,9 @@
     <ol class="opc pl-0" id="checkout-steps">
         <li id="opc-billing" class="tab-section allow">
             <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                <div class="card-block p-2">
-                    <blockquote class="card-blockquote">
-                        <span>1. @T("Checkout.BillingAddress")</span>
+                <div class="card-body p-2">
+                    <blockquote class="card-bodyquote">
+                        <span>@billingAddressStepNumber. @T("Checkout.BillingAddress")</span>
                     </blockquote>
                 </div>
             </div>
@@ -69,9 +69,9 @@
             {
             <li id="opc-shipping" class="tab-section">
                 <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                    <div class="card-block p-2">
-                        <blockquote class="card-blockquote">
-                            <span>2. @T("Checkout.ShippingAddress")</span>
+                    <div class="card-body p-2">
+                        <blockquote class="card-bodyquote">
+                            <span>@shippingAddressStepNumber. @T("Checkout.ShippingAddress")</span>
                         </blockquote>
                     </div>
                 </div>
@@ -101,9 +101,9 @@
                 <li id="opc-shipping_method" class="tab-section">
 
                     <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                        <div class="card-block p-2">
-                            <blockquote class="card-blockquote">
-                                <span>3. @T("Checkout.ShippingMethod")</span>
+                        <div class="card-body p-2">
+                            <blockquote class="card-bodyquote">
+                                <span>@shippingMethodStepNumber. @T("Checkout.ShippingMethod")</span>
                             </blockquote>
                         </div>
                     </div>
@@ -126,9 +126,9 @@
         }
         <li id="opc-payment_method" class="tab-section">
             <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                <div class="card-block p-2">
-                    <blockquote class="card-blockquote">
-                        <span>4. @T("Checkout.PaymentMethod")</span>
+                <div class="card-body p-2">
+                    <blockquote class="card-bodyquote">
+                        <span>@paymentMethodStepNumber. @T("Checkout.PaymentMethod")</span>
                     </blockquote>
                 </div>
             </div>
@@ -142,7 +142,10 @@
                         PaymentMethod.init('#co-payment-method-form', '@(storeLocation)checkout/OpcSavePaymentMethod/');
                 </script>
                 <div class="col-12 buttons pt-1 pb-1 my-3 px-0" id="payment-method-buttons-container">
-                    <a class="btn btn-secondary" href="#" onclick="Checkout.back(); return false;">@T("Common.Back")</a>
+                    @if (paymentMethodStepNumber > 1)
+                    {
+                        <a class="btn btn-secondary" href="#" onclick="Checkout.back(); return false;">@T("Common.Back")</a>
+                    }
                     <input type="button" class="btn btn-success payment-method-next-step-button" onclick="PaymentMethod.save()" value="@T("Common.Continue")" />
                     <span class="please-wait" id="payment-method-please-wait" style="display: none;">@T("Common.LoadingNextStep")</span>
                 </div>
@@ -150,9 +153,9 @@
         </li>
         <li id="opc-payment_info" class="tab-section">
             <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                <div class="card-block p-2">
-                    <blockquote class="card-blockquote">
-                        <span>5. @T("Checkout.PaymentInfo")</span>
+                <div class="card-body p-2">
+                    <blockquote class="card-bodyquote">
+                        <span>@paymentInfoStepNumber. @T("Checkout.PaymentInfo")</span>
                     </blockquote>
                 </div>
             </div>
@@ -174,9 +177,9 @@
         </li>
         <li id="opc-confirm_order" class="tab-section">
             <div class="step-title card card-grey mb-1 text-left p-0 col-12 rounded-0">
-                <div class="card-block p-2">
-                    <blockquote class="card-blockquote">
-                        <span>6. @T("Checkout.ConfirmOrder")</span>
+                <div class="card-body p-2">
+                    <blockquote class="card-bodyquote">
+                        <span>@confirmOrderStepNumber. @T("Checkout.ConfirmOrder")</span>
                     </blockquote>
                 </div>
             </div>

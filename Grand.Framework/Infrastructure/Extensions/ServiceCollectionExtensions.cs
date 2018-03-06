@@ -1,5 +1,4 @@
 ﻿using System;
-//using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.Configuration;
@@ -8,11 +7,9 @@ using Newtonsoft.Json.Serialization;
 using Grand.Core.Configuration;
 using Grand.Core.Data;
 using Grand.Core.Infrastructure;
-using Grand.Services.Authentication;
 using Grand.Services.Logging;
 using Grand.Services.Tasks;
 using Grand.Framework.FluentValidation;
-using Grand.Framework.Mvc.Filters;
 using Grand.Framework.Mvc.ModelBinding;
 using Grand.Framework.Themes;
 using Grand.Service.Authentication;
@@ -21,6 +18,12 @@ using FluentScheduler;
 using System.Linq;
 using Grand.Core.Plugins;
 using Grand.Services.Authentication.External;
+using Grand.Core;
+using System.IO;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc.Internal;
+using Grand.Framework.Mvc.Routing;
+using Grand.Core.Domain.Security;
 
 namespace Grand.Framework.Infrastructure.Extensions
 {
@@ -37,7 +40,7 @@ namespace Grand.Framework.Infrastructure.Extensions
         /// <returns>Configured service provider</returns>
         public static IServiceProvider ConfigureApplicationServices(this IServiceCollection services, IConfiguration configuration)
         {
-            //add NopConfig configuration parameters
+            //add GrandConfig configuration parameters
             services.ConfigureStartupConfig<GrandConfig>(configuration.GetSection("Grand"));
             //add hosting configuration parameters
             services.ConfigureStartupConfig<HostingConfig>(configuration.GetSection("Hosting"));
@@ -113,6 +116,12 @@ namespace Grand.Framework.Infrastructure.Extensions
                 {
                     Name = ".Grand.Antiforgery"
                 };
+                if (DataSettingsHelper.DatabaseIsInstalled())
+                {
+                    //whether to allow the use of anti-forgery cookies from SSL protected page on the other store pages which are not
+                    options.Cookie.SecurePolicy = EngineContext.Current.Resolve<SecuritySettings>().ForceSslForAllPages
+                    ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.None;
+                }
             });
         }
 
@@ -129,6 +138,12 @@ namespace Grand.Framework.Infrastructure.Extensions
                     Name = ".Grand.Session",
                     HttpOnly = true,
                 };
+                if (DataSettingsHelper.DatabaseIsInstalled())
+                {
+                    //whether to allow the use of session values from SSL protected page on the other store pages which are not
+                    options.Cookie.SecurePolicy = EngineContext.Current.Resolve<SecuritySettings>().ForceSslForAllPages
+                        ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.None;
+                }
             });
         }
 
@@ -146,6 +161,19 @@ namespace Grand.Framework.Infrastructure.Extensions
             {
                 options.ViewLocationExpanders.Add(new ThemeableViewLocationExpander());
             });
+        }
+
+        /// <summary>
+        /// Adds data protection services
+        /// </summary>
+        /// <param name="services">Collection of service descriptors</param>
+        public static void AddGrandDataProtection(this IServiceCollection services)
+        {
+            var dataProtectionKeysPath = CommonHelper.MapPath("~/App_Data/DataProtectionKeys");
+            var dataProtectionKeysFolder = new DirectoryInfo(dataProtectionKeysPath);
+
+            //configure the data protection system to persist keys to the specified directory
+            services.AddDataProtection().PersistKeysToFileSystem(dataProtectionKeysFolder);
         }
 
         /// <summary>
@@ -192,6 +220,12 @@ namespace Grand.Framework.Infrastructure.Extensions
                     options.LoginPath = GrandCookieAuthenticationDefaults.LoginPath;
                     options.AccessDeniedPath = GrandCookieAuthenticationDefaults.AccessDeniedPath;
                     options.LogoutPath = GrandCookieAuthenticationDefaults.LogoutPath;
+                    if (DataSettingsHelper.DatabaseIsInstalled())
+                    {
+                        //whether to allow the use of authentication cookies from SSL protected page on the other store pages which are not
+                        options.Cookie.SecurePolicy = EngineContext.Current.Resolve<SecuritySettings>().ForceSslForAllPages
+                        ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.None;
+                    }
                 }
             );
 
@@ -212,13 +246,12 @@ namespace Grand.Framework.Infrastructure.Extensions
                     options.LoginPath = GrandCookieAuthenticationDefaults.LoginPath;
                     options.AccessDeniedPath = GrandCookieAuthenticationDefaults.AccessDeniedPath;
                     options.LogoutPath = GrandCookieAuthenticationDefaults.LogoutPath;
+
+                    // whether to allow the use of authentication cookies from SSL protected page on the other store pages which are not
+                    options.Cookie.SecurePolicy = EngineContext.Current.Resolve<SecuritySettings>().ForceSslForAllPages
+                     ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.None;
                 }
             );
-
-
-
-
-
         }
 
         /// <summary>
@@ -244,6 +277,16 @@ namespace Grand.Framework.Infrastructure.Extensions
             mvcBuilder.AddFluentValidation(configuration => configuration.ValidatorFactoryType = typeof(GrandValidatorFactory));
 
             return mvcBuilder;
+        }
+
+        /// <summary>
+        /// Register custom RedirectResultExecutor
+        /// </summary>
+        /// <param name="services">Collection of service descriptors</param>
+        public static void AddGrandRedirectResultExecutor(this IServiceCollection services)
+        {
+            //we use custom redirect executor as a workaround to allow using non-ASCII characters in redirect URLs
+            services.AddSingleton<RedirectResultExecutor, GrandRedirectResultExecutor>();
         }
     }
 }

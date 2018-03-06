@@ -1,6 +1,7 @@
 ﻿@model ProductModel
 @Html.ValidationSummary(false)
 @Html.HiddenFor(model => model.Id)
+@Html.HiddenFor(model => model.Ticks)
 
 <script>
     $('body').addClass('page-sidebar-closed');
@@ -50,31 +51,41 @@
         <li @Html.RenderSelectedTabIndex(8, GetSelectedTabIndex()) id="tab-attributes-product">
             @T("Admin.Catalog.Products.ProductAttributes")
         </li>
-        <li @Html.RenderSelectedTabIndex(9, GetSelectedTabIndex())>
+        <li @Html.RenderSelectedTabIndex(9, GetSelectedTabIndex()) id="tab-bundle-products">
+            @T("Admin.Catalog.Products.BundleProducts")
+        </li>
+        <li @Html.RenderSelectedTabIndex(10, GetSelectedTabIndex()) id="tab-calendar">
+            @T("Admin.Catalog.Products.Calendar")
+        </li>
+        <li @Html.RenderSelectedTabIndex(11, GetSelectedTabIndex()) id="tab-bids">
+            @T("Admin.Catalog.Products.Bids")
+        </li>
+        <li @Html.RenderSelectedTabIndex(12, GetSelectedTabIndex())>
             @T("Admin.Catalog.Products.AclStores")
         </li>
-        <li @Html.RenderSelectedTabIndex(10, GetSelectedTabIndex())>
+        <li @Html.RenderSelectedTabIndex(13, GetSelectedTabIndex())>
             @T("Admin.Catalog.Products.RelatedProducts")
         </li>
-        <li @Html.RenderSelectedTabIndex(11, GetSelectedTabIndex())>
+        <li @Html.RenderSelectedTabIndex(14, GetSelectedTabIndex())>
             @T("Admin.Catalog.Products.CrossSells")
         </li>
-        <li @Html.RenderSelectedTabIndex(12, GetSelectedTabIndex()) id="tab-associated-products">
+        <li @Html.RenderSelectedTabIndex(15, GetSelectedTabIndex()) id="tab-associated-products">
             @T("Admin.Catalog.Products.AssociatedProducts")
         </li>
-        <li @Html.RenderSelectedTabIndex(13, GetSelectedTabIndex())>
-            @T("Admin.Catalog.Products.ActivityLog")
-        </li>
-
         @if (!String.IsNullOrEmpty(Model.Id))
         {
-            <li @Html.RenderSelectedTabIndex(14, GetSelectedTabIndex()) id="tab-purchased-product">
+            <li @Html.RenderSelectedTabIndex(16, GetSelectedTabIndex())>
+                @T("Admin.Catalog.Products.ActivityLog")
+            </li>
+            <li @Html.RenderSelectedTabIndex(17, GetSelectedTabIndex()) id="tab-purchased-product">
                 @T("Admin.Catalog.Products.PurchasedWithOrders")
             </li>
-            <li @Html.RenderSelectedTabIndex(15, GetSelectedTabIndex())>
+            <li @Html.RenderSelectedTabIndex(18, GetSelectedTabIndex())>
                 @T("Admin.Catalog.Products.Reviews")
             </li>
         }
+        
+
     </ul>
     <div>
         @Html.Partial("_CreateOrUpdate.Info", Model)
@@ -103,6 +114,15 @@
     </div>
     <div>
         @Html.Partial("_CreateOrUpdate.ProductAttributes", Model)
+    </div>
+    <div>
+        @Html.Partial("_CreateOrUpdate.BundleProducts", Model)
+    </div>
+    <div>
+        @Html.Partial("_CreateOrUpdate.Calendar", Model)
+    </div>
+    <div>
+        @Html.Partial("_CreateOrUpdate.Bids", Model)
     </div>
     <div>
         @Html.Partial("_CreateOrUpdate.Acl", Model)

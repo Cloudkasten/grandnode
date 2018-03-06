@@ -29,6 +29,7 @@ using MongoDB.Driver.Core.Bindings;
 using System.Threading;
 using Grand.Services.Topics;
 using Grand.Core.Domain.Discounts;
+using Grand.Core.Domain.Security;
 
 namespace Grand.Services.Installation
 {
@@ -44,6 +45,7 @@ namespace Grand.Services.Installation
         private const string version_380 = "3.80";
         private const string version_390 = "3.90";
         private const string version_400 = "4.00";
+        private const string version_410 = "4.10";
 
         #endregion
 
@@ -83,6 +85,11 @@ namespace Grand.Services.Installation
                 fromversion = version_400;
             }
 
+            if (fromversion == version_400)
+            {
+                From400To410();
+                fromversion = version_410;
+            }
             if (fromversion == toversion)
             {
                 var databaseversion = _versionRepository.Table.FirstOrDefault();
@@ -276,7 +283,7 @@ namespace Grand.Services.Installation
             string upgrade_script = File.ReadAllText(filePath);
             var bscript = new BsonJavaScript(upgrade_script);
             var operation = new EvalOperation(_versionRepository.Database.DatabaseNamespace, bscript, null);
-            var writeBinding = new WritableServerBinding(_versionRepository.Database.Client.Cluster);
+            var writeBinding = new WritableServerBinding(_versionRepository.Database.Client.Cluster, NoCoreSession.NewHandle());
             operation.Execute(writeBinding, CancellationToken.None);
 
             #endregion
@@ -304,12 +311,12 @@ namespace Grand.Services.Installation
                 LastStartUtc = DateTime.MinValue,
                 LastNonSuccessEndUtc = DateTime.MinValue,
                 LastSuccessUtc = DateTime.MinValue,
-                TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                 TimeInterval = 1,
                 MinuteOfHour = 1,
                 HourOfDay = 1,
                 DayOfWeek = DayOfWeek.Thursday,
-                MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                 DayOfMonth = 1
             };
             EngineContext.Current.Resolve<IRepository<ScheduleTask>>().Insert(shtask1);
@@ -323,12 +330,12 @@ namespace Grand.Services.Installation
                 LastStartUtc = DateTime.MinValue,
                 LastNonSuccessEndUtc = DateTime.MinValue,
                 LastSuccessUtc = DateTime.MinValue,
-                TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                 TimeInterval = 1,
                 MinuteOfHour = 1,
                 HourOfDay = 1,
                 DayOfWeek = DayOfWeek.Thursday,
-                MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                 DayOfMonth = 1
             };
             EngineContext.Current.Resolve<IRepository<ScheduleTask>>().Insert(shtask2);
@@ -687,6 +694,129 @@ namespace Grand.Services.Installation
                 item.ConditionType.Add(13);
                 _customerActionType.Update(item);
             }
+
+            #endregion
+        }
+
+        private void From400To410()
+        {
+            #region Install String resources
+            InstallStringResources("EN_400_410.nopres.xml");
+            #endregion
+
+            #region Install product reservation
+            EngineContext.Current.Resolve<IRepository<ProductReservation>>().Collection.Indexes.CreateOneAsync(Builders<ProductReservation>.IndexKeys.Ascending(x => x.Id), new CreateIndexOptions() { Name = "Id", Unique = true });
+            EngineContext.Current.Resolve<IRepository<ProductReservation>>().Collection.Indexes.CreateOneAsync(Builders<ProductReservation>.IndexKeys.Ascending(x => x.ProductId).Ascending(x => x.Date), new CreateIndexOptions() { Name = "ProductReservation", Unique = false });
+            #endregion
+
+            #region Security settings
+            var settingService = EngineContext.Current.Resolve<ISettingService>();
+            var securitySettings = EngineContext.Current.Resolve<SecuritySettings>();
+            securitySettings.AllowNonAsciiCharInHeaders = true;
+            settingService.SaveSetting(securitySettings, x => x.AllowNonAsciiCharInHeaders, "", false);
+            #endregion
+
+            #region MessageTemplates
+
+            var eaGeneral = EngineContext.Current.Resolve<IRepository<EmailAccount>>().Table.FirstOrDefault();
+            if (eaGeneral == null)
+                throw new Exception("Default email account cannot be loaded");
+            var messageTemplates = new List<MessageTemplate>
+            {
+                new MessageTemplate
+                        {
+                            Name = "AuctionEnded.CustomerNotificationWin",
+                            Subject = "%Store.Name%. Auction ended.",
+                            Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>At %Auctions.EndTime% you have won <a href=\"%Store.URL%%Auctions.ProductSeName%\">%Auctions.ProductName%</a> for %Auctions.Price%. Visit <a href=\"%Store.URL%/cart\">cart</a> to finish checkout process. </p>",
+                            IsActive = true,
+                            EmailAccountId = eaGeneral.Id,
+                        },
+                new MessageTemplate
+                        {
+                            Name = "AuctionEnded.CustomerNotificationLost",
+                            Subject = "%Store.Name%. Auction ended.",
+                            Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>Unfortunately you did not win the bid %Auctions.ProductName%</p> <p>End price:  %Auctions.Price% </p> <p>End date auction %Auctions.EndTime% </p>",
+                            IsActive = true,
+                            EmailAccountId = eaGeneral.Id,
+                        },
+                new MessageTemplate
+                        {
+                            Name = "AuctionEnded.CustomerNotificationBin",
+                            Subject = "%Store.Name%. Auction ended.",
+                            Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>Unfortunately you did not win the bid %Product.Name%</p> <p>Product was bought by option Buy it now for price: %Product.Price% </p>",
+                            IsActive = true,
+                            EmailAccountId = eaGeneral.Id,
+                        },
+                new MessageTemplate
+                        {
+                            Name = "AuctionEnded.StoreOwnerNotification",
+                            Subject = "%Store.Name%. Auction ended.",
+                            Body = "<p>At %Auctions.EndTime% %Customer.FullName% have won <a href=\"%Store.URL%%Auctions.ProductSeName%\">%Auctions.ProductName%</a> for %Auctions.Price%.</p>",
+                            IsActive = true,
+                            EmailAccountId = eaGeneral.Id,
+                        },
+                new MessageTemplate
+                        {
+                            Name = "BidUp.CustomerNotification",
+                            Subject = "%Store.Name%. Your offer has been outbid.",
+                            Body = "<p>Hi %Customer.FullName%!</p><p>Your offer for product <a href=\"%Auctions.ProductSeName%\">%Auctions.ProductName%</a> has been outbid. New price is %Auctions.Price%.<br />Raise a price by raising one's offer. Auction will be ended on %Auctions.EndTime%</p>",
+                            IsActive = true,
+                            EmailAccountId = eaGeneral.Id,
+                        },
+            };
+            EngineContext.Current.Resolve<IRepository<MessageTemplate>>().Insert(messageTemplates);
+            #endregion
+
+            #region Tasks
+
+            var keepliveTask = EngineContext.Current.Resolve<IRepository<ScheduleTask>>();
+
+            var endtask = new ScheduleTask
+            {
+                ScheduleTaskName = "End of the auctions",
+                Type = "Grand.Services.Tasks.EndAuctionsTask, Grand.Services",
+                Enabled = false,
+                StopOnError = false,
+                TimeIntervalChoice = TimeIntervalChoice.EveryMinutes,
+                TimeInterval = 10,
+                MinuteOfHour = 1,
+                HourOfDay = 1,
+                DayOfWeek = DayOfWeek.Monday,
+                MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
+                DayOfMonth = 1
+            };
+            keepliveTask.Insert(endtask);
+
+            var _keepAliveScheduleTask = keepliveTask.Table.Where(x => x.Type == "Grand.Services.Tasks.KeepAliveScheduleTask").FirstOrDefault();
+            if(_keepAliveScheduleTask !=null)
+                keepliveTask.Delete(_keepAliveScheduleTask);
+
+            #endregion
+
+            #region Insert activities
+
+            var _activityLogTypeRepository = EngineContext.Current.Resolve<IRepository<ActivityLogType>>();
+            _activityLogTypeRepository.Insert(new ActivityLogType()
+            {
+                SystemKeyword = "PublicStore.AddNewBid",
+                Enabled = false,
+                Name = "Public store. Add new bid"
+            });
+            _activityLogTypeRepository.Insert(new ActivityLogType()
+            {
+                SystemKeyword = "DeleteBid",
+                Enabled = false,
+                Name = "Delete bid"
+            });
+
+
+            #endregion
+
+            #region Index bid
+
+            EngineContext.Current.Resolve<IRepository<Bid>>().Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.Id), new CreateIndexOptions() { Name = "Id", Unique = true });
+            EngineContext.Current.Resolve<IRepository<Bid>>().Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.ProductId).Ascending(x => x.CustomerId).Descending(x => x.Date), new CreateIndexOptions() { Name = "ProductCustomer", Unique = false });
+            EngineContext.Current.Resolve<IRepository<Bid>>().Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.ProductId).Descending(x => x.Date), new CreateIndexOptions() { Name = "ProductDate", Unique = false });
 
             #endregion
         }

@@ -79,6 +79,8 @@
                         @await Html.PartialAsync("_DeliveryInfo", Model)
                         <!--sample download-->
                         @await Html.PartialAsync("_DownloadSample", Model)
+                        <!--product bundles-->
+                        @await Html.PartialAsync("_ProductBundles", Model)
                         <!--attributes-->
                         @{
                             var dataDictAttributes = new ViewDataDictionary(ViewData);
@@ -91,13 +93,12 @@
                             dataDictGiftCard.TemplateInfo.HtmlFieldPrefix = string.Format("giftcard_{0}", Model.Id);
                             @await Html.PartialAsync("_GiftCardInfo", Model.GiftCard, dataDictGiftCard)
                         }
-                        <!--rental info-->
-
-                        @{
-
-                            var dataDictRental = new ViewDataDictionary(ViewData);
-                            dataDictRental.TemplateInfo.HtmlFieldPrefix = string.Format("rental_{0}", Model.Id);
-                            @await Html.PartialAsync("_RentalInfo", Model, dataDictRental)
+                        <!--reservation info-->
+                        @if (Model.ProductType == ProductType.Reservation)
+                        {
+                           var dataDictReservation = new ViewDataDictionary(ViewData);
+                           dataDictReservation.TemplateInfo.HtmlFieldPrefix = string.Format("reservation_{0}", Model.Id);
+                           @await Html.PartialAsync("_ReservationInfo", Model, dataDictReservation)
                         }
                         <!--price & add to cart-->
                         <div class="col-12 overview-buttons generalMarginSupporter">
@@ -115,6 +116,14 @@
                                         @await Html.PartialAsync("_ProductPrice", Model.ProductPrice, dataDictPrice)
                                 </div>
                                 <div class="col-lg-12 generalAdToCart px-0 my-3">
+                                        <!--auction-->
+                                        @if (Model.ProductType == ProductType.Auction)
+                                        {
+                                            var dataDictAuction = new ViewDataDictionary(ViewData);
+                                            dataDictAuction.TemplateInfo.HtmlFieldPrefix = string.Format("auction_{0}", Model.Id);
+                                            @await Html.PartialAsync("_AuctionInfo", Model, dataDictAuction)
+                                        }
+
                                         @await Html.PartialAsync("_AddToCart", Model.AddToCart, dataDictAddToCart)
                                         @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_inside_overview_buttons_before", additionalData = Model.Id })
                                         @{
@@ -122,8 +131,11 @@
                                             dataDictAddToWishlist.TemplateInfo.HtmlFieldPrefix = string.Format("addtocart_{0}", Model.Id);
                                         }
                                     <div class="d-md-inline-flex d-sm-flex product-simple-share my-2">
-                                        @await Html.PartialAsync("_AddToWishlist", Model.AddToCart, dataDictAddToWishlist)
-                                        @await Html.PartialAsync("_CompareProductsButton", Model)
+                                        @if (Model.ProductType == ProductType.SimpleProduct)
+                                        {
+                                            @await Html.PartialAsync("_AddToWishlist", Model.AddToCart, dataDictAddToWishlist)
+                                            @await Html.PartialAsync("_CompareProductsButton", Model)
+                                        }
                                         @await Html.PartialAsync("_ProductEmailAFriendButton", Model)
                                         @await Html.PartialAsync("_ProductAskQuestionButton", Model)
                                     </div>
@@ -144,16 +156,16 @@
                         <ul class="nav nav-tabs" role="tablist">
                             <li class="nav-item">
                                     <a class="nav-link active" data-toggle="tab" href="#desctipt">
-                                    <i class="fa fa-sticky-note-o hidden-lg-up"></i>
-                                        <span class="hidden-md-down">@T("Products.Description")</span>
+                                    <i class="fa fa-sticky-note-o d-lg-none"></i>
+                                        <span class="d-none d-lg-block">@T("Products.Description")</span>
                                     </a>
                             </li>
                             @if (Model.ProductTags.Any())
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" data-toggle="tab" href="#tags">
-                                        <i class="fa fa-tags hidden-lg-up"></i>
-                                        <span class="hidden-md-down">@T("Products.Tags")</span>
+                                        <i class="fa fa-tags d-lg-none"></i>
+                                        <span class="d-none d-lg-block">@T("Products.Tags")</span>
                                     </a>
                                 </li>
                             }
@@ -161,8 +173,8 @@
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" data-toggle="tab" href="#spec">
-                                        <span class="hidden-md-down">@T("Products.Specs")</span>
-                                        <i class="fa fa-puzzle-piece hidden-lg-up"></i>
+                                        <span class="d-none d-lg-block">@T("Products.Specs")</span>
+                                        <i class="fa fa-puzzle-piece d-lg-none"></i>
                                     </a>
                                 </li>
                             }

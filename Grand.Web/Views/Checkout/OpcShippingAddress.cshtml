@@ -52,7 +52,7 @@
                     else
                     {
                         <label for="pickup-points-select">@T("Checkout.PickupPoints.SelectPickupPoint")</label>
-                        <select name="pickup-point-id" id="pickup-points-select" class="address-select" title="">
+                        <select name="pickup-point-id" id="pickup-points-select" class="custom-select address-select" title="">
                             @foreach (var point in Model.PickupPoints)
                             {
                                 var addressLine = new StringBuilder();
@@ -95,7 +95,7 @@
     {
         <div class="shipping-addresses" id="shipping-addresses-form">
             @await Component.InvokeAsync("Widget", new { widgetZone = "op_checkout_shipping_address_top" })
-            @if (Model.ExistingAddresses.Count > 0)
+            @if (Model.ExistingAddresses.Any())
             {
                 <div class="section select-shipping-address">
                     <label for="shipping-address-select">@T("Checkout.SelectShippingAddressOrEnterNewOne")</label>

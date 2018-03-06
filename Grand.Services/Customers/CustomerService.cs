@@ -849,59 +849,29 @@ namespace Grand.Services.Customers
             if (guestRole == null)
                 throw new GrandException("'Guests' role could not be loaded");
 
-            var query = _customerRepository.Table;
+            var builder = Builders<Customer>.Filter;
+            var filter = builder.ElemMatch(x => x.CustomerRoles, role => role.Id == guestRole.Id);
 
             if (createdFromUtc.HasValue)
-                query = query.Where(c => createdFromUtc.Value <= c.CreatedOnUtc);
+                filter = filter & builder.Gte(x => x.LastActivityDateUtc, createdFromUtc.Value);
             if (createdToUtc.HasValue)
-                query = query.Where(c => createdToUtc.Value >= c.CreatedOnUtc);
-            query = query.Where(c => c.CustomerRoles.Any(cr => cr.Id == guestRole.Id));
+                filter = filter & builder.Lte(x => x.LastActivityDateUtc, createdToUtc.Value);
             if (onlyWithoutShoppingCart)
-                query = query.Where(c => !c.ShoppingCartItems.Any());
+                filter = filter & builder.Eq(x => x.HasShoppingCartItems, false);
 
-            //no orders     
-            query = query.Where(c => !c.IsHasOrders);
-            //no blog comments
-            query = query.Where(c => !c.IsHasBlogComments);
+            filter = filter & builder.Eq(x => x.IsHasOrders, false);
+            filter = filter & builder.Eq(x => x.IsHasBlogComments, false);
+            filter = filter & builder.Eq(x => x.IsNewsItem, false);
+            filter = filter & builder.Eq(x => x.IsHasProductReview, false);
+            filter = filter & builder.Eq(x => x.IsHasProductReviewH, false);
+            filter = filter & builder.Eq(x => x.IsHasPoolVoting, false);
+            filter = filter & builder.Eq(x => x.IsHasForumPost, false);
+            filter = filter & builder.Eq(x => x.IsHasForumTopic, false);
+            filter = filter & builder.Eq(x => x.IsSystemAccount, false);
 
-            //no news comments
-            query = query.Where(c => !c.IsNewsItem);
+            var customers = _customerRepository.Collection.DeleteMany(filter);
 
-            //no product reviews
-            query = query.Where(c => !c.IsHasProductReview);
-
-            //no product reviews helpfulness
-            query = query.Where(c => !c.IsHasProductReviewH);
-
-            //no poll voting
-            query = query.Where(c => !c.IsHasPoolVoting);
-
-            //no forum posts 
-            query = query.Where(c => !c.IsHasForumPost);
-
-            //no forum topics
-            query = query.Where(c => !c.IsHasForumTopic);
-
-            //don't delete system accounts
-            query = query.Where(c => !c.IsSystemAccount);
-
-            var customers = query.ToList();
-
-            int totalRecordsDeleted = 0;
-            foreach (var c in customers)
-            {
-                try
-                {
-                    //delete from database
-                    _customerRepository.Delete(c);
-                    totalRecordsDeleted++;
-                }
-                catch (Exception exc)
-                {
-                    Debug.WriteLine(exc);
-                }
-            }
-            return totalRecordsDeleted;
+            return (int)customers.DeletedCount;
 
         }
 
@@ -1267,22 +1237,22 @@ namespace Grand.Services.Customers
 
         #region Customer Shopping Cart Item
 
-        public virtual void DeleteShoppingCartItem(ShoppingCartItem shoppingCartItem)
+        public virtual void DeleteShoppingCartItem(string customerId, ShoppingCartItem shoppingCartItem)
         {
             if (shoppingCartItem == null)
                 throw new ArgumentNullException("shoppingCartItem");
 
             var updatebuilder = Builders<Customer>.Update;
             var update = updatebuilder.Pull(p => p.ShoppingCartItems, shoppingCartItem);
-            _customerRepository.Collection.UpdateOneAsync(new BsonDocument("_id", shoppingCartItem.CustomerId), update);
+            _customerRepository.Collection.UpdateOneAsync(new BsonDocument("_id", customerId), update);
 
             //event notification
             _eventPublisher.EntityDeleted(shoppingCartItem);
 
             if (shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
-                UpdateCustomerLastUpdateCartDate(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateCartDate(customerId, DateTime.UtcNow);
             else
-                UpdateCustomerLastUpdateWishList(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateWishList(customerId, DateTime.UtcNow);
 
         }
 
@@ -1293,7 +1263,7 @@ namespace Grand.Services.Customers
             var update = updatebuilder.PullFilter(p => p.ShoppingCartItems, p=>p.StoreId == storeId && p.ShoppingCartTypeId == (int)shoppingCartType);
             _customerRepository.Collection.UpdateOneAsync(new BsonDocument("_id", customerId), update);
 
-            if (shoppingCartType == ShoppingCartType.ShoppingCart)
+            if (shoppingCartType == ShoppingCartType.ShoppingCart || shoppingCartType == ShoppingCartType.Auctions)
                 UpdateCustomerLastUpdateCartDate(customerId, DateTime.UtcNow);
             else
                 UpdateCustomerLastUpdateWishList(customerId, DateTime.UtcNow);
@@ -1301,31 +1271,31 @@ namespace Grand.Services.Customers
         }
 
 
-        public virtual void InsertShoppingCartItem(ShoppingCartItem shoppingCartItem)
+        public virtual void InsertShoppingCartItem(string customerId, ShoppingCartItem shoppingCartItem)
         {
             if (shoppingCartItem == null)
                 throw new ArgumentNullException("shoppingCartItem");
 
             var updatebuilder = Builders<Customer>.Update;
             var update = updatebuilder.AddToSet(p => p.ShoppingCartItems, shoppingCartItem);
-            _customerRepository.Collection.UpdateOneAsync(new BsonDocument("_id", shoppingCartItem.CustomerId), update);
+            _customerRepository.Collection.UpdateOneAsync(new BsonDocument("_id", customerId), update);
 
             //event notification
             _eventPublisher.EntityInserted(shoppingCartItem);
 
             if (shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
-                UpdateCustomerLastUpdateCartDate(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateCartDate(customerId, DateTime.UtcNow);
             else
-                UpdateCustomerLastUpdateWishList(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateWishList(customerId, DateTime.UtcNow);
         }
 
-        public virtual void UpdateShoppingCartItem(ShoppingCartItem shoppingCartItem)
+        public virtual void UpdateShoppingCartItem(string customerId, ShoppingCartItem shoppingCartItem)
         {
             if (shoppingCartItem == null)
                 throw new ArgumentNullException("shoppingCartItem");
 
             var builder = Builders<Customer>.Filter;
-            var filter = builder.Eq(x => x.Id, shoppingCartItem.CustomerId);
+            var filter = builder.Eq(x => x.Id, customerId);
             filter = filter & builder.ElemMatch(x => x.ShoppingCartItems, y => y.Id == shoppingCartItem.Id);
             var update = Builders<Customer>.Update
                 .Set(x => x.ShoppingCartItems.ElementAt(-1).Quantity, shoppingCartItem.Quantity)
@@ -1347,9 +1317,9 @@ namespace Grand.Services.Customers
             _eventPublisher.EntityUpdated(shoppingCartItem);
 
             if (shoppingCartItem.ShoppingCartType == ShoppingCartType.ShoppingCart)
-                UpdateCustomerLastUpdateCartDate(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateCartDate(customerId, DateTime.UtcNow);
             else
-                UpdateCustomerLastUpdateWishList(shoppingCartItem.CustomerId, DateTime.UtcNow);
+                UpdateCustomerLastUpdateWishList(customerId, DateTime.UtcNow);
 
         }
 

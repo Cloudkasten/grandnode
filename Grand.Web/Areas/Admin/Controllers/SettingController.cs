@@ -209,6 +209,9 @@ namespace Grand.Web.Areas.Admin.Controllers
                 model.NotifyAboutNewBlogComments_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.NotifyAboutNewBlogComments, storeScope);
                 model.NumberOfTags_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.NumberOfTags, storeScope);
                 model.ShowHeaderRssUrl_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.ShowHeaderRssUrl, storeScope);
+                model.ShowBlogOnHomePage_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.ShowBlogOnHomePage, storeScope);
+                model.HomePageBlogCount_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.HomePageBlogCount, storeScope);
+                model.MaxTextSizeHomePage_OverrideForStore = _settingService.SettingExists(blogSettings, x => x.MaxTextSizeHomePage, storeScope);
             }
 
             return View(model);
@@ -257,6 +260,21 @@ namespace Grand.Web.Areas.Admin.Controllers
             else if (!String.IsNullOrEmpty(storeScope))
                 _settingService.DeleteSetting(blogSettings, x => x.ShowHeaderRssUrl, storeScope);
 
+            if (model.ShowBlogOnHomePage_OverrideForStore || storeScope == "")
+                _settingService.SaveSetting(blogSettings, x => x.ShowBlogOnHomePage, storeScope, false);
+            else if (!String.IsNullOrEmpty(storeScope))
+                _settingService.DeleteSetting(blogSettings, x => x.ShowBlogOnHomePage, storeScope);
+
+            if (model.HomePageBlogCount_OverrideForStore || storeScope == "")
+                _settingService.SaveSetting(blogSettings, x => x.HomePageBlogCount, storeScope, false);
+            else if (!String.IsNullOrEmpty(storeScope))
+                _settingService.DeleteSetting(blogSettings, x => x.HomePageBlogCount, storeScope);
+
+            if (model.MaxTextSizeHomePage_OverrideForStore || storeScope == "")
+                _settingService.SaveSetting(blogSettings, x => x.MaxTextSizeHomePage, storeScope, false);
+            else if (!String.IsNullOrEmpty(storeScope))
+                _settingService.DeleteSetting(blogSettings, x => x.MaxTextSizeHomePage, storeScope);
+
             //now clear cache
             _cacheManager.Clear();
 
@@ -279,6 +297,23 @@ namespace Grand.Web.Areas.Admin.Controllers
             var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var vendorSettings = _settingService.LoadSetting<VendorSettings>(storeScope);
             var model = vendorSettings.ToModel();
+            model.AddressSettings.CityEnabled = vendorSettings.CityEnabled;
+            model.AddressSettings.CityRequired = vendorSettings.CityRequired;
+            model.AddressSettings.CompanyEnabled = vendorSettings.CompanyEnabled;
+            model.AddressSettings.CompanyRequired = vendorSettings.CompanyRequired;
+            model.AddressSettings.CountryEnabled = vendorSettings.CountryEnabled;
+            model.AddressSettings.FaxEnabled = vendorSettings.FaxEnabled;
+            model.AddressSettings.FaxRequired = vendorSettings.FaxRequired;
+            model.AddressSettings.PhoneEnabled = vendorSettings.PhoneEnabled;
+            model.AddressSettings.PhoneRequired = vendorSettings.PhoneRequired;
+            model.AddressSettings.StateProvinceEnabled = vendorSettings.StateProvinceEnabled;
+            model.AddressSettings.StreetAddress2Enabled = vendorSettings.StreetAddress2Enabled;
+            model.AddressSettings.StreetAddress2Required = vendorSettings.StreetAddress2Required;
+            model.AddressSettings.StreetAddressEnabled = vendorSettings.StreetAddressEnabled;
+            model.AddressSettings.StreetAddressRequired = vendorSettings.StreetAddressRequired;
+            model.AddressSettings.ZipPostalCodeEnabled = vendorSettings.ZipPostalCodeEnabled;
+            model.AddressSettings.ZipPostalCodeRequired = vendorSettings.ZipPostalCodeRequired;
+
             model.ActiveStoreScopeConfiguration = storeScope;
             if (!String.IsNullOrEmpty(storeScope))
             {
@@ -312,11 +347,27 @@ namespace Grand.Web.Areas.Admin.Controllers
             var storeScope = this.GetActiveStoreScopeConfiguration(_storeService, _workContext);
             var vendorSettings = _settingService.LoadSetting<VendorSettings>(storeScope);
             vendorSettings = model.ToEntity(vendorSettings);
+            vendorSettings.CityEnabled = model.AddressSettings.CityEnabled;
+            vendorSettings.CityRequired = model.AddressSettings.CityRequired;
+            vendorSettings.CompanyEnabled = model.AddressSettings.CompanyEnabled;
+            vendorSettings.CompanyRequired = model.AddressSettings.CompanyRequired;
+            vendorSettings.CountryEnabled = model.AddressSettings.CountryEnabled;
+            vendorSettings.FaxEnabled = model.AddressSettings.FaxEnabled;
+            vendorSettings.FaxRequired = model.AddressSettings.FaxRequired;
+            vendorSettings.PhoneEnabled = model.AddressSettings.PhoneEnabled;
+            vendorSettings.PhoneRequired = model.AddressSettings.PhoneRequired;
+            vendorSettings.StateProvinceEnabled = model.AddressSettings.StateProvinceEnabled;
+            vendorSettings.StreetAddress2Enabled = model.AddressSettings.StreetAddress2Enabled;
+            vendorSettings.StreetAddress2Required = model.AddressSettings.StreetAddress2Required;
+            vendorSettings.StreetAddressEnabled = model.AddressSettings.StreetAddressEnabled;
+            vendorSettings.StreetAddressRequired = model.AddressSettings.StreetAddressRequired;
+            vendorSettings.ZipPostalCodeEnabled = model.AddressSettings.ZipPostalCodeEnabled;
+            vendorSettings.ZipPostalCodeRequired = model.AddressSettings.ZipPostalCodeRequired;
 
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            
+
             if (model.VendorsBlockItemsToDisplay_OverrideForStore || storeScope == "")
                 _settingService.SaveSetting(vendorSettings, x => x.VendorsBlockItemsToDisplay, storeScope, false);
             else if (!String.IsNullOrEmpty(storeScope))
@@ -378,7 +429,9 @@ namespace Grand.Web.Areas.Admin.Controllers
                 _settingService.SaveSetting(vendorSettings, x => x.NotifyVendorAboutNewVendorReviews, storeScope, false);
             else if (!String.IsNullOrEmpty(storeScope))
                 _settingService.DeleteSetting(vendorSettings, x => x.NotifyVendorAboutNewVendorReviews, storeScope);
-            
+
+            _settingService.SaveSetting(vendorSettings);
+
             //now clear cache
             _cacheManager.Clear();
 
@@ -1891,6 +1944,7 @@ namespace Grand.Web.Areas.Admin.Controllers
                 model.ShowProductImagesInMiniShoppingCart_OverrideForStore = _settingService.SettingExists(shoppingCartSettings, x => x.ShowProductImagesInMiniShoppingCart, storeScope);
                 model.MiniShoppingCartProductNumber_OverrideForStore = _settingService.SettingExists(shoppingCartSettings, x => x.MiniShoppingCartProductNumber, storeScope);
                 model.AllowCartItemEditing_OverrideForStore = _settingService.SettingExists(shoppingCartSettings, x => x.AllowCartItemEditing, storeScope);
+                model.CartsSharedBetweenStores_OverrideForStore = _settingService.SettingExists(shoppingCartSettings, x => x.CartsSharedBetweenStores, storeScope);
             }
             return View(model);
         }
@@ -1992,6 +2046,11 @@ namespace Grand.Web.Areas.Admin.Controllers
                 _settingService.SaveSetting(shoppingCartSettings, x => x.AllowCartItemEditing, storeScope, false);
             else if (!String.IsNullOrEmpty(storeScope))
                 _settingService.DeleteSetting(shoppingCartSettings, x => x.AllowCartItemEditing, storeScope);
+
+            if (model.CartsSharedBetweenStores_OverrideForStore || storeScope == "")
+                _settingService.SaveSetting(shoppingCartSettings, x => x.CartsSharedBetweenStores, storeScope, false);
+            else if (!String.IsNullOrEmpty(storeScope))
+                _settingService.DeleteSetting(shoppingCartSettings, x => x.CartsSharedBetweenStores, storeScope);
 
             //now clear cache
             _cacheManager.Clear();
@@ -3139,10 +3198,6 @@ namespace Grand.Web.Areas.Admin.Controllers
 
             return RedirectToAction("GeneralCommon");
         }
-
-
-
-
         //all settings
         public IActionResult AllSettings()
         {

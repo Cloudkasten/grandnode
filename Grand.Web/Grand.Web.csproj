@@ -5,11 +5,12 @@
     <Company>UNIT-SOFT Sp. z o.o.</Company>
     <Authors>UNIT-SOFT Sp. z o.o.</Authors>
     <PackageProjectUrl>https://grandnode.com/</PackageProjectUrl>
+    <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore" Version="2.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore" Version="2.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Grand.Core\Grand.Core.csproj" />
@@ -19,6 +20,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="App_Data\browscap.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="App_Data\DataProtectionKeys\Index.htm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="App_Data\Download\Index.htm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="App_Data\GeoLite2-Country.mmdb">
@@ -126,10 +133,16 @@
     <None Update="App_Data\Localization\Upgrade\EN_380_390.nopres.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="App_Data\Localization\Upgrade\EN_400_410.nopres.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="App_Data\Localization\Upgrade\EN_390_400.nopres.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="App_Data\Pdf\FreeSerif.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="App_Data\TempUploads\Index.htm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="App_Data\Upgrade\UpgradeScript_380_390.js">

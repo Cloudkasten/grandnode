@@ -64,7 +64,7 @@ namespace Grand.Framework
 
                     tabStrip.AppendLine("<li>");
                     var urlHelper = new UrlHelper(helper.ViewContext);
-                    var iconUrl = urlHelper.Content("~/Content/images/flags/" + language.FlagImageFileName);
+                    var iconUrl = urlHelper.Content("~/Content/Images/flags/" + language.FlagImageFileName);
                     tabStrip.AppendLine(string.Format("<img class='k-image' alt='' src='{0}'>", iconUrl));
                     tabStrip.AppendLine(WebUtility.HtmlEncode(language.Name));
                     tabStrip.AppendLine("</li>");
@@ -176,7 +176,7 @@ namespace Grand.Framework
 
             object value;
             var hintResource = string.Empty;
-            if (metadata.Metadata.AdditionalValues.TryGetValue("GrandResourceDisplayName", out value))
+            if (metadata.Metadata.AdditionalValues.TryGetValue("GrandResourceDisplayNameAttribute", out value))
             {
                 var resourceDisplayName = value as GrandResourceDisplayNameAttribute;
                 if (resourceDisplayName != null)
@@ -443,9 +443,6 @@ namespace Grand.Framework
         {
             return html.ViewData.TemplateInfo.GetFullHtmlFieldName(ExpressionHelper.GetExpressionText(expression));
         }
-
-        public static IHtmlContent HelloWorldHTMLString(this IHtmlHelper htmlHelper)
-            => new HtmlString("<strong>Hello World</strong>");
 
         /// <summary>
         /// Creates a days, months, years drop down list using an HTML select control. 

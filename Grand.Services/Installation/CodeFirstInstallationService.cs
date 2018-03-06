@@ -56,6 +56,7 @@ namespace Grand.Services.Installation
         #region Fields
 
         private readonly IRepository<GrandNodeVersion> _versionRepository;
+        private readonly IRepository<Bid> _bidRepository;
         private readonly IRepository<Address> _addressRepository;
         private readonly IRepository<Affiliate> _affiliateRepository;
         private readonly IRepository<BlogComment> _blogcommentRepository;
@@ -89,6 +90,7 @@ namespace Grand.Services.Installation
         private readonly IRepository<Vendor> _vendorRepository;
         private readonly IRepository<Manufacturer> _manufacturerRepository;
         private readonly IRepository<Product> _productRepository;
+        private readonly IRepository<ProductReservation> _productReservationRepository;
         private readonly IRepository<ProductAlsoPurchased> _productalsopurchasedRepository;
         private readonly IRepository<Picture> _pictureRepository;
         private readonly IRepository<UrlRecord> _urlRecordRepository;
@@ -155,6 +157,7 @@ namespace Grand.Services.Installation
 
         public CodeFirstInstallationService(
             IRepository<GrandNodeVersion> versionRepository,
+            IRepository<Bid> bidRepository,
             IRepository<Address> addressRepository,
             IRepository<Affiliate> affiliateRepository,
             IRepository<BlogComment> blogcommentRepository,
@@ -186,6 +189,7 @@ namespace Grand.Services.Installation
             IRepository<Category> categoryRepository,
             IRepository<Manufacturer> manufacturerRepository,
             IRepository<Product> productRepository,
+            IRepository<ProductReservation> productReservationRepository,
             IRepository<ProductAlsoPurchased> productalsopurchasedRepository,
             IRepository<Picture> pictureRepository,
             IRepository<UrlRecord> urlRecordRepository,
@@ -247,6 +251,7 @@ namespace Grand.Services.Installation
             IHostingEnvironment hostingEnvironment)
         {
             this._versionRepository = versionRepository;
+            this._bidRepository = bidRepository;
             this._addressRepository = addressRepository;
             this._affiliateRepository = affiliateRepository;
             this._blogcommentRepository = blogcommentRepository;
@@ -278,6 +283,7 @@ namespace Grand.Services.Installation
             this._categoryRepository = categoryRepository;
             this._manufacturerRepository = manufacturerRepository;
             this._productRepository = productRepository;
+            this._productReservationRepository = productReservationRepository;
             this._pictureRepository = pictureRepository;
             this._productalsopurchasedRepository = productalsopurchasedRepository;
             this._urlRecordRepository = urlRecordRepository;
@@ -345,7 +351,7 @@ namespace Grand.Services.Installation
 
         protected virtual string GetSamplesPath()
         {
-            return Path.Combine(_hostingEnvironment.WebRootPath, "content/samples/");
+            return Path.Combine(_hostingEnvironment.WebRootPath, "Content/samples/");
         }
 
 
@@ -4263,23 +4269,6 @@ namespace Grand.Services.Installation
             backgroundTaskUser.CustomerRoles.Add(crGuests);
             _customerRepository.Insert(backgroundTaskUser);
 
-
-            //webapi user
-            var webApiUser = new Customer
-            {
-                Email = "webapi@webapi.com",
-                CustomerGuid = Guid.NewGuid(),
-                PasswordFormat = PasswordFormat.Clear,
-                AdminComment = "WebApi system guest record used for requests from webapi.",
-                Active = true,
-                IsSystemAccount = true,
-                SystemName = SystemCustomerNames.WebApi,
-                CreatedOnUtc = DateTime.UtcNow,
-                LastActivityDateUtc = DateTime.UtcNow,
-            };
-            webApiUser.CustomerRoles.Add(crGuests);
-            _customerRepository.Insert(webApiUser);
-
         }
 
         protected virtual void HashDefaultCustomerPassword(string defaultUserEmail, string defaultUserPassword)
@@ -4359,7 +4348,47 @@ namespace Grand.Services.Installation
                 throw new Exception("Default email account cannot be loaded");
             var messageTemplates = new List<MessageTemplate>
                                {
-                                   new MessageTemplate
+                                    new MessageTemplate
+                                       {
+                                           Name = "AuctionEnded.CustomerNotificationWin",
+                                           Subject = "%Store.Name%. Auction ended.",
+                                           Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>At %Auctions.EndTime% you have won <a href=\"%Store.URL%%Auctions.ProductSeName%\">%Auctions.ProductName%</a> for %Auctions.Price%. Visit  <a href=\"%Store.URL%/cart\">cart</a> to finish checkout process. </p>",
+                                           IsActive = true,
+                                           EmailAccountId = eaGeneral.Id,
+                                       },
+                                    new MessageTemplate
+                                            {
+                                                Name = "AuctionEnded.CustomerNotificationLost",
+                                                Subject = "%Store.Name%. Auction ended.",
+                                                Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>Unfortunately you did not win the bid %Auctions.ProductName%</p> <p>End price:  %Auctions.Price% </p> <p>End date auction %Auctions.EndTime% </p>",
+                                                IsActive = true,
+                                                EmailAccountId = eaGeneral.Id,
+                                            },
+                                    new MessageTemplate
+                                            {
+                                                Name = "AuctionEnded.CustomerNotificationBin",
+                                                Subject = "%Store.Name%. Auction ended.",
+                                                Body = "<p>Hello, %Customer.FullName%!</p><p></p><p>Unfortunately you did not win the bid %Product.Name%</p> <p>Product was bought by option Buy it now for price: %Product.Price% </p>",
+                                                IsActive = true,
+                                                EmailAccountId = eaGeneral.Id,
+                                            },
+                                    new MessageTemplate
+                                       {
+                                           Name = "AuctionEnded.StoreOwnerNotification",
+                                           Subject = "%Store.Name%. Auction ended.",
+                                           Body = "<p>At %Auctions.EndTime% %Customer.FullName% have won <a href=\"%Store.URL%%Auctions.ProductSeName%\">%Auctions.ProductName%</a> for %Auctions.Price%.</p>",
+                                           IsActive = true,
+                                           EmailAccountId = eaGeneral.Id,
+                                       },
+                                    new MessageTemplate
+                                       {
+                                           Name = "BidUp.CustomerNotification",
+                                           Subject = "%Store.Name%. Your offer has been outbid.",
+                                           Body = "<p>Hi %Customer.FullName%!</p><p>Your offer for product <a href=\"%Auctions.ProductSeName%\">%Auctions.ProductName%</a> has been outbid. New price is %Auctions.Price%.<br />Raise a price by raising one's offer. Auction will be ended on %Auctions.EndTime%</p>",
+                                           IsActive = true,
+                                           EmailAccountId = eaGeneral.Id,
+                                       },
+                                    new MessageTemplate
                                        {
                                            Name = "Blog.BlogComment",
                                            Subject = "%Store.Name%. New blog comment.",
@@ -4702,8 +4731,6 @@ namespace Grand.Services.Installation
                                            IsActive = true,
                                            EmailAccountId = eaGeneral.Id,
                                        },
-
-
                                };
             _messageTemplateRepository.Insert(messageTemplates);
         }
@@ -4906,7 +4933,8 @@ namespace Grand.Services.Installation
                 RenderXuaCompatible = false,
                 XuaCompatibleValue = "IE=edge",
                 DeleteGuestTaskOlderThanMinutes = 1440,
-                PopupForTermsOfServiceLinks = true
+                PopupForTermsOfServiceLinks = true,
+                AllowToSelectStore = false,
             });
             _settingService.SaveSetting(new SecuritySettings
             {
@@ -4916,7 +4944,8 @@ namespace Grand.Services.Installation
                 EnableXsrfProtectionForAdminArea = true,
                 EnableXsrfProtectionForPublicStore = true,
                 HoneypotEnabled = false,
-                HoneypotInputName = "hpinput"
+                HoneypotInputName = "hpinput",
+                AllowNonAsciiCharInHeaders = true,
             });
             _settingService.SaveSetting(new MediaSettings
             {
@@ -4931,6 +4960,7 @@ namespace Grand.Services.Installation
                 VendorThumbPictureSize = 450,
                 CartThumbPictureSize = 80,
                 MiniCartThumbPictureSize = 70,
+                AddToCartThumbPictureSize = 200,
                 AutoCompleteSearchThumbPictureSize = 20,
                 ImageSquarePictureSize = 32,
                 MaximumImageSize = 1980,
@@ -5131,6 +5161,7 @@ namespace Grand.Services.Installation
                 NotifyNewCustomerRegistration = false,
                 HideDownloadableProductsTab = false,
                 HideBackInStockSubscriptionsTab = false,
+                HideAuctionsTab = true,
                 DownloadableProductsValidateUser = false,
                 CustomerNameFormat = CustomerNameFormat.ShowFirstName,
                 GenderEnabled = true,
@@ -5357,6 +5388,9 @@ namespace Grand.Services.Installation
                 NotifyAboutNewBlogComments = false,
                 NumberOfTags = 15,
                 ShowHeaderRssUrl = false,
+                ShowBlogOnHomePage = false,
+                HomePageBlogCount = 3,
+                MaxTextSizeHomePage = 200
             });
             _settingService.SaveSetting(new NewsSettings
             {
@@ -9692,6 +9726,7 @@ namespace Grand.Services.Installation
                                             UsePercentage = false,
                                             DiscountAmount = 10,
                                             RequiresCouponCode = true,
+                                            IsEnabled = true,
                                         },
                                     new Discount
                                         {
@@ -9703,13 +9738,19 @@ namespace Grand.Services.Installation
                                             StartDateUtc = new DateTime(2010,1,1),
                                             EndDateUtc = new DateTime(2020,1,1),
                                             RequiresCouponCode = true,
+                                            IsEnabled = true
                                         },
                                 };
             _discountRepository.Insert(discounts);
-            var coupon = new DiscountCoupon();
-            coupon.CouponCode = "123";
-            coupon.DiscountId = _discountRepository.Table.Where(x => x.Name == "Sample discount with coupon code").FirstOrDefault().Id;
-            _discountCouponRepository.Insert(coupon);
+            var coupon1 = new DiscountCoupon();
+            coupon1.CouponCode = "123";
+            coupon1.DiscountId = _discountRepository.Table.Where(x => x.Name == "Sample discount with coupon code").FirstOrDefault().Id;
+            _discountCouponRepository.Insert(coupon1);
+
+            var coupon2 = new DiscountCoupon();
+            coupon2.CouponCode = "456";
+            coupon2.DiscountId = _discountRepository.Table.Where(x => x.Name == "'20% order total' discount").FirstOrDefault().Id;
+            _discountCouponRepository.Insert(coupon2);
 
         }
 
@@ -9968,6 +10009,12 @@ namespace Grand.Services.Installation
                                                   SystemKeyword = "AddNewWidget",
                                                   Enabled = true,
                                                   Name = "Add a new widget"
+                                              },
+                                          new ActivityLogType
+                                              {
+                                                  SystemKeyword = "DeleteBid",
+                                                  Enabled = true,
+                                                  Name = "Delete bid"
                                               },
                                           new ActivityLogType
                                               {
@@ -10230,6 +10277,12 @@ namespace Grand.Services.Installation
                                               },
                                           new ActivityLogType
                                               {
+                                                  SystemKeyword = "PublicStore.AddNewBid",
+                                                  Enabled = false,
+                                                  Name = "Public store. Add new bid"
+                                              },
+                                          new ActivityLogType
+                                              {
                                                   SystemKeyword = "PublicStore.AddToCompareList",
                                                   Enabled = false,
                                                   Name = "Public store. Add to compare list"
@@ -10439,34 +10492,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.QueuedMessagesSendScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_MINUTES,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryMinutes,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
-                    DayOfMonth = 1
-                },
-                new ScheduleTask
-                {
-                    ScheduleTaskName = "Keep alive",
-                    Type = "Grand.Services.Tasks.KeepAliveScheduleTask",
-                    Enabled = true,
-                    StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_MINUTES,
-                    TimeInterval = 5,
-                    MinuteOfHour = 1,
-                    HourOfDay = 1,
-                    DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10475,16 +10506,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.DeleteGuestsScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_MINUTES,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryMinutes,
                     TimeInterval = 10,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10493,16 +10520,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.ClearCacheScheduleTask, Grand.Services",
                     Enabled = false,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_MINUTES,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryMinutes,
                     TimeInterval = 10,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10511,16 +10534,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.ClearLogScheduleTask",
                     Enabled = false,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_HOURS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryHours,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10529,16 +10548,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.UpdateExchangeRateScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_HOURS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryHours,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10547,16 +10562,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderAbandonedCartScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_HOURS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryHours,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10565,16 +10576,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderRegisteredCustomerScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10583,16 +10590,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderLastActivityScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10601,16 +10604,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderLastPurchaseScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10619,16 +10618,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderBirthdayScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10637,15 +10632,12 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderCompletedOrderScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
                 new ScheduleTask
@@ -10654,15 +10646,26 @@ namespace Grand.Services.Installation
                     Type = "Grand.Services.Tasks.CustomerReminderUnpaidOrderScheduleTask, Grand.Services",
                     Enabled = true,
                     StopOnError = false,
-                    LastStartUtc = DateTime.MinValue,
-                    LastNonSuccessEndUtc = DateTime.MinValue,
-                    LastSuccessUtc = DateTime.MinValue,
-                    TimeIntervalChoice = TimeIntervalChoice.EVERY_DAYS,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryDays,
                     TimeInterval = 1,
                     MinuteOfHour = 1,
                     HourOfDay = 1,
                     DayOfWeek  = DayOfWeek.Thursday,
-                    MonthOptionChoice = MonthOptionChoice.ON_SPECIFIC_DAY,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
+                    DayOfMonth = 1
+                },
+                new ScheduleTask
+                {
+                    ScheduleTaskName = "End of the auctions",
+                    Type = "Grand.Services.Tasks.EndAuctionsTask, Grand.Services",
+                    Enabled = false,
+                    StopOnError = false,
+                    TimeIntervalChoice = TimeIntervalChoice.EveryHours,
+                    TimeInterval = 10,
+                    MinuteOfHour = 1,
+                    HourOfDay = 1,
+                    DayOfWeek  = DayOfWeek.Thursday,
+                    MonthOptionChoice = MonthOptionChoice.OnSpecificDay,
                     DayOfMonth = 1
                 },
             };
@@ -10966,6 +10969,14 @@ namespace Grand.Services.Installation
 
             _productRepository.Collection.Indexes.CreateOneAsync(Builders<Product>.IndexKeys.Ascending(x => x.Published).Ascending(x => x.VisibleIndividually).Ascending("ProductSpecificationAttributes.SpecificationAttributeOptionId").Ascending("ProductSpecificationAttributes.AllowFiltering"), new CreateIndexOptions() { Name = "ProductSpecificationAttributes", Unique = false });
 
+            //productreseration
+            _productReservationRepository.Collection.Indexes.CreateOneAsync(Builders<ProductReservation>.IndexKeys.Ascending(x => x.Id), new CreateIndexOptions() { Name = "Id", Unique = true });
+            _productReservationRepository.Collection.Indexes.CreateOneAsync(Builders<ProductReservation>.IndexKeys.Ascending(x => x.ProductId).Ascending(x => x.Date), new CreateIndexOptions() { Name = "ProductReservation", Unique = false });
+
+            //bid
+            _bidRepository.Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.Id), new CreateIndexOptions() { Name = "Id", Unique = true });
+            _bidRepository.Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.ProductId).Ascending(x=>x.CustomerId).Descending(x=>x.Date), new CreateIndexOptions() { Name = "ProductCustomer", Unique = false });
+            _bidRepository.Collection.Indexes.CreateOneAsync(Builders<Bid>.IndexKeys.Ascending(x => x.ProductId).Descending(x => x.Date), new CreateIndexOptions() { Name = "ProductDate", Unique = false });
 
             //ProductReview
             _productReviewRepository.Collection.Indexes.CreateOneAsync(Builders<ProductReview>.IndexKeys.Ascending(x => x.Id), new CreateIndexOptions() { Name = "Id", Unique = true });

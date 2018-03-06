@@ -1,18 +1,14 @@
 ﻿/*
 ** ajax cart implementation
 */
-
-
 var AjaxCart = {
     loadWaiting: false,
-    usepopupnotifications: false,
     topcartselector: '',
     topwishlistselector: '',
     flyoutcartselector: '',
 
-    init: function (usepopupnotifications, topcartselector, topwishlistselector, flyoutcartselector) {
+    init: function (topcartselector, topwishlistselector, flyoutcartselector) {
         this.loadWaiting = false;
-        this.usepopupnotifications = usepopupnotifications;
         this.topcartselector = topcartselector;
         this.topwishlistselector = topwishlistselector;
         this.flyoutcartselector = flyoutcartselector;
@@ -24,7 +20,16 @@ var AjaxCart = {
     },
 
     //add a product to the cart/wishlist from the catalog pages
-    addproducttocart_catalog: function (urladd) {
+    addproducttocart_catalog: function (urladd, showqty, productid) {
+        if (showqty.toLowerCase() == 'true') {
+            var qty = $('#addtocart_' + productid + '_EnteredQuantity').val();
+            if (urladd.indexOf("forceredirection") != -1) {
+                urladd += '&quantity=' + qty;
+            }
+            else {
+                urladd += '?quantity=' + qty;
+            }
+        }
         if (this.loadWaiting != false) {
             return;
         }
@@ -57,6 +62,22 @@ var AjaxCart = {
         });
     },
 
+    //add bid
+    addbid: function (urladd, formselector) {
+        if (this.loadWaiting != false) {
+            return;
+        }
+        this.setLoadWaiting(true);
+        $.ajax({
+            cache: false,
+            url: urladd,
+            data: $(formselector).serialize(),
+            type: 'post',
+            success: this.success_process,
+            complete: this.resetLoadWaiting,
+            error: this.ajaxFailure
+        });
+    },
     //add a product to compare list
     addproducttocomparelist: function (urladd) {
         if (this.loadWaiting != false) {
@@ -84,27 +105,34 @@ var AjaxCart = {
         if (response.updateflyoutcartsectionhtml) {
             $(AjaxCart.flyoutcartselector).replaceWith(response.updateflyoutcartsectionhtml);
         }
+        if (response.comparemessage) {
+            if (response.success == true) {
+                displayBarNotification(response.comparemessage, 'success', 3500);
+            }
+            else {
+                displayBarNotification(response.comparemessage, 'error', 3500);
+            }
+            return false;
+        }
         if (response.message) {
             //display notification
             if (response.success == true) {
                 //success
-                if (AjaxCart.usepopupnotifications == true) {
-                    displayPopupNotification(response.message, 'success', true);
+                displayPopupAddToCart(response.html);
+
+                if (response.refreshreservation == true) {
+                    var param = "";
+                    if ($("#parameterDropdown").val() != null) {
+                        param = $("#parameterDropdown").val();
+                    }
+
+                    Reservation.fillAvailableDates(Reservation.currentYear, Reservation.currentMonth, param, true);
                 }
-                else {
-                    //specify timeout for success messages
-                    displayBarNotification(response.message, 'success', 3500);
-                }
+
             }
             else {
                 //error
-                if (AjaxCart.usepopupnotifications == true) {
-                    displayPopupNotification(response.message, 'error', true);
-                }
-                else {
-                    //no timeout for errors
-                    displayBarNotification(response.message, 'error', 0);
-                }
+                displayBarNotification(response.message, 'error', 3500);
             }
             return false;
         }

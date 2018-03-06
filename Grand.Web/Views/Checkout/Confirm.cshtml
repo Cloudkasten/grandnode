@@ -19,6 +19,8 @@
                             if (!$('#termsofservice').is(':checked')) {
                                 $('#terms-of-service-warning-box').modal('show')
                                 termOfServiceOk = false;
+                                $("body.modal-open").removeAttr("style");
+                                $(".navUp.modal-open").removeAttr("style");
                             } else {
                                 termOfServiceOk = true;
                             }
@@ -95,7 +97,7 @@
                     });
                 </script>
             }
-            @if (Model.Warnings.Count > 0)
+            @if (Model.Warnings.Any())
             {
                 <div class="message-error">
                     <ul>

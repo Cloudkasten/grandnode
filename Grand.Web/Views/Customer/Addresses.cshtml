@@ -15,7 +15,7 @@
         <i class="fa fa-plus" aria-hidden="true"></i> @T("Common.AddNew")
     </button>
     <h1 class="h2 generalTitle">@T("Account.CustomerAddresses")</h1>
-    @if (Model.Addresses.Count > 0)
+    @if (Model.Addresses.Any())
     {
             <div class="col-12 address-list">
                 <div class="row">
@@ -24,7 +24,7 @@
                         var address = Model.Addresses[i];
                         <div class="col-md-6 col-12">
                             <div class="card">
-                                <div class="card-block">
+                                <div class="card-body">
                                     <div class="address-item">
                                         <div class="card-title">
                                             <h4><strong>@address.FirstName @address.LastName</strong></h4>

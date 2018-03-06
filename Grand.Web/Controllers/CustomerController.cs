@@ -152,6 +152,7 @@ namespace Grand.Web.Controllers
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
         [ValidateCaptcha]
+        [PublicAntiForgery]
         public virtual IActionResult Login(LoginModel model, string returnUrl, bool captchaValid)
         {
             //validate CAPTCHA
@@ -184,6 +185,7 @@ namespace Grand.Web.Controllers
 
                             //activity log
                             _customerActivityService.InsertActivity("PublicStore.Login", "", _localizationService.GetResource("ActivityLog.PublicStore.Login"), customer);
+
 
                             if (String.IsNullOrEmpty(returnUrl) || !Url.IsLocalUrl(returnUrl))
                                 return RedirectToRoute("HomePage");
@@ -1053,6 +1055,11 @@ namespace Grand.Web.Controllers
                 address.CustomerId = customer.Id;
                 _customerService.UpdateAddress(address);
 
+                if (customer.BillingAddress?.Id == address.Id)
+                    _customerService.UpdateBillingAddress(address);
+                if (customer.ShippingAddress?.Id == address.Id)
+                    _customerService.UpdateShippingAddress(address);
+
                 return RedirectToRoute("CustomerAddresses");
             }
 
@@ -1238,6 +1245,24 @@ namespace Grand.Web.Controllers
             _genericAttributeService.SaveAttribute(customer, SystemCustomerAttributeNames.AvatarPictureId, 0);
             
             return RedirectToRoute("CustomerAvatar");
+        }
+
+        #endregion
+
+        #region My account / Auctions
+
+        [HttpsRequirement(SslRequirement.Yes)]
+        public virtual IActionResult Auctions()
+        {
+            if (!_workContext.CurrentCustomer.IsRegistered())
+                return Challenge();
+
+            if (_customerSettings.HideAuctionsTab)
+                return RedirectToRoute("CustomerInfo");
+
+            var model = _customerWebService.PrepareAuctions(_workContext.CurrentCustomer);
+
+            return View(model);
         }
 
         #endregion

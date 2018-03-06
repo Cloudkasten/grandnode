@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
 using Grand.Core.Domain.Catalog;
 using Grand.Core.Domain.Orders;
-using Grand.Framework;
-using Grand.Framework.Mvc;
 using Grand.Web.Models.Media;
 using Grand.Framework.Mvc.Models;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -30,13 +27,15 @@ namespace Grand.Web.Models.Catalog
             ProductManufacturers = new List<ManufacturerModel>();
             ProductReviewOverview = new ProductReviewOverviewModel();
             TierPrices = new List<TierPriceModel>();
+            Parameters = new List<SelectListItem>();
+            ProductBundleModels = new List<ProductBundleModel>();
         }
 
         //picture(s)
         public bool DefaultPictureZoomEnabled { get; set; }
         public PictureModel DefaultPictureModel { get; set; }
         public IList<PictureModel> PictureModels { get; set; }
-
+        public ProductType ProductType { get; set; }
         public string Name { get; set; }
         public string ShortDescription { get; set; }
         public string FullDescription { get; set; }
@@ -66,10 +65,11 @@ namespace Grand.Web.Models.Catalog
         public string DeliveryDate { get; set; }
         public string DeliveryColorSquaresRgb { get; set; }
 
-
-        public bool IsRental { get; set; }
-        public DateTime? RentalStartDate { get; set; }
-        public DateTime? RentalEndDate { get; set; }
+        public int Interval { get; set; }
+        public IntervalUnit IntervalUnit { get; set; }
+        public bool IncBothDate { get; set; }
+        public List<SelectListItem> Parameters { get; set; }
+        public DateTime StartDate { get; set; }
 
         public string StockAvailability { get; set; }
 
@@ -102,8 +102,16 @@ namespace Grand.Web.Models.Catalog
         //a list of associated products. For example, "Grouped" products could have several child "simple" products
         public IList<ProductDetailsModel> AssociatedProducts { get; set; }
 
+        //bundle product 
+        public IList<ProductBundleModel> ProductBundleModels { get; set; }
+
         public bool DisplayDiscontinuedMessage { get; set; }
         public string CurrentStoreName { get; set; }
+
+        public decimal StartPrice { get; set; }
+        public decimal HighestBidValue { get; set; }
+        public DateTime? EndTime { get; set; }
+        public bool AuctionEnded { get; set; }
 
         #region Nested Classes
 
@@ -144,9 +152,13 @@ namespace Grand.Web.Models.Catalog
 
             public bool DisableBuyButton { get; set; }
             public bool DisableWishlistButton { get; set; }
+            
+            //reservation
+            public bool IsReservation { get; set; }
 
-            //rental
-            public bool IsRental { get; set; }
+            //auction
+            public bool IsAuction { get; set; }
+
             public string MeasureUnit { get; set; }
             //pre-order
             public bool AvailableForPreOrder { get; set; }
@@ -165,6 +177,7 @@ namespace Grand.Web.Models.Catalog
             public string CurrencyCode { get; set; }
 
             public string OldPrice { get; set; }
+            public string CatalogPrice { get; set; }
 
             public string Price { get; set; }
             public string PriceWithDiscount { get; set; }
@@ -178,9 +191,17 @@ namespace Grand.Web.Models.Catalog
 
             public bool HidePrices { get; set; }
 
-            //rental
-            public bool IsRental { get; set; }
-            public string RentalPrice { get; set; }
+            //Reservation
+            public bool IsReservation { get; set; }
+            public string ReservationPrice { get; set; }
+
+            //Auction
+            public bool IsAuction { get; set; }
+            public string HighestBid { get; set; }
+            public decimal HighestBidValue { get; set; }
+            public string StartPrice { get; set; }
+            public decimal StartPriceValue { get; set; }
+            public bool DisableBuyButton { get; set; }
 
             /// <summary>
             /// A value indicating whether we should display tax/shipping info (used in Germany)
@@ -291,6 +312,21 @@ namespace Grand.Web.Models.Catalog
 
             //picture model is used when we want to override a default product picture when some attribute is selected
             public PictureModel PictureModel { get; set; }
+        }
+
+        public partial class ProductBundleModel : BaseGrandModel
+        {
+            public string ProductId { get; set; }
+            public string Name { get; set; }
+            public string SeName { get; set; }
+            public string ShortDescription { get; set; }
+            public string Sku { get; set; }
+            public string Mpn { get; set; }
+            public string Gtin { get; set; }
+            public int Quantity { get; set; }
+            public string Price { get; set; }
+            public decimal PriceValue { get; set; }
+            public PictureModel DefaultPictureModel { get; set; }
         }
 
         #endregion

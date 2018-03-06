@@ -37,6 +37,7 @@ namespace Grand.Web.Controllers
 
         private readonly IProductService _productService;
         private readonly IProductWebService _productWebService;
+        private readonly IProductReservationService _productReservationService;
         private readonly IWorkContext _workContext;
         private readonly IStoreContext _storeContext;
         private readonly ILocalizationService _localizationService;
@@ -56,6 +57,7 @@ namespace Grand.Web.Controllers
         private readonly CaptchaSettings _captchaSettings;
         private readonly ICacheManager _cacheManager;
         private readonly IOrderService _orderService;
+
         #endregion
 
         #region Constructors
@@ -63,6 +65,7 @@ namespace Grand.Web.Controllers
         public ProductController(
             IProductService productService,
             IProductWebService productWebService,
+            IProductReservationService productReservationService,
             IWorkContext workContext,
             IStoreContext storeContext,
             ILocalizationService localizationService,
@@ -86,6 +89,7 @@ namespace Grand.Web.Controllers
         {
             this._productService = productService;
             this._productWebService = productWebService;
+            this._productReservationService = productReservationService;
             this._workContext = workContext;
             this._storeContext = storeContext;
             this._localizationService = localizationService;
@@ -135,7 +139,7 @@ namespace Grand.Web.Controllers
                 return InvokeHttp404();
 
             //availability dates
-            if (!product.IsAvailable())
+            if (!product.IsAvailable() && !(product.ProductType == ProductType.Auction))
                 return InvokeHttp404();
             
             //visible individually?
@@ -554,14 +558,21 @@ namespace Grand.Web.Controllers
                 return Json(new
                 {
                     success = false,
-                    message = "No product found with the specified ID"
+                    comparemessage = "No product found with the specified ID"
+                });
+
+            if(product.ProductType == ProductType.Auction || product.ProductType == ProductType.Reservation)
+                return Json(new
+                {
+                    success = false,
+                    comparemessage = _localizationService.GetResource("Products.ProductCantAddToCompareList")
                 });
 
             if (!_catalogSettings.CompareProductsEnabled)
                 return Json(new
                 {
                     success = false,
-                    message = "Product comparison is disabled"
+                    comparemessage = "Product comparison is disabled"
                 });
 
             _compareProductsService.AddProductToCompareList(productId);
@@ -572,7 +583,7 @@ namespace Grand.Web.Controllers
             return Json(new
             {
                 success = true,
-                message = string.Format(_localizationService.GetResource("Products.ProductHasBeenAddedToCompareList.Link"), Url.RouteUrl("CompareProducts"))
+                comparemessage = string.Format(_localizationService.GetResource("Products.ProductHasBeenAddedToCompareList.Link"), Url.RouteUrl("CompareProducts"))
                 //use the code below (commented) if you want a customer to be automatically redirected to the compare products page
                 //redirect = Url.RouteUrl("CompareProducts"),
             });
@@ -628,6 +639,30 @@ namespace Grand.Web.Controllers
             return RedirectToRoute("CompareProducts");
         }
 
+        public IActionResult GetDatesForMonth(string productId, int month, string parameter, int year)
+        {
+            var allReservations = _productReservationService.GetProductReservationsByProductId(productId, true, null);
+            var query = allReservations.Where(x => x.Date.Month == month && x.Date.Year == year && x.Date >= DateTime.UtcNow);
+            if (!string.IsNullOrEmpty(parameter))
+            {
+                query = query.Where(x => x.Parameter == parameter);
+            }
+
+            var reservations = query.ToList();
+            var inCart = _workContext.CurrentCustomer.ShoppingCartItems.Where(x => !string.IsNullOrEmpty(x.ReservationId)).ToList();
+            foreach (var cartItem in inCart)
+            {
+                var matching = reservations.Where(x => x.Id == cartItem.ReservationId);
+                if (matching.Any())
+                {
+                    reservations.Remove(matching.First());
+                }
+            }
+
+            var toReturn = reservations.GroupBy(x => x.Date).Select(x => x.First()).ToList();
+
+            return Json(toReturn);
+        }
         #endregion
     }
 }

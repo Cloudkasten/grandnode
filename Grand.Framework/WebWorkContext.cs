@@ -92,7 +92,7 @@ namespace Grand.Framework
         #region Utilities
 
         /// <summary>
-        /// Get nop customer cookie
+        /// Get customer cookie
         /// </summary>
         /// <returns>String value of cookie</returns>
         protected virtual string GetCustomerCookie()
@@ -104,7 +104,7 @@ namespace Grand.Framework
         }
 
         /// <summary>
-        /// Set nop customer cookie
+        /// Set customer cookie
         /// </summary>
         /// <param name="customerGuid">Guid of the customer</param>
         protected virtual void SetCustomerCookie(Guid customerGuid)

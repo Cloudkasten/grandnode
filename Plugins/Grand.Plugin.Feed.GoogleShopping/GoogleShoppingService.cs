@@ -387,7 +387,7 @@ namespace Grand.Plugin.Feed.GoogleShopping
                             finalPriceBase = product.Price;
                         }
                         decimal price = _currencyService.ConvertFromPrimaryStoreCurrency(finalPriceBase, currency);
-                        price = RoundingHelper.RoundPrice(price, _workContext.WorkingCurrency);
+                        price = RoundingHelper.RoundPrice(price, currency);
                         writer.WriteElementString("g", "price", googleBaseNamespace,
                                                   price.ToString(new CultureInfo("en-US", false).NumberFormat) + " " +
                                                   currency.CurrencyCode);
@@ -653,7 +653,7 @@ namespace Grand.Plugin.Feed.GoogleShopping
         /// <param name="store">Store</param>
         public virtual void GenerateStaticFile(Store store)
         {
-            var appPath = CommonHelper.MapPath("wwwroot/content/files/exportimport");
+            var appPath = CommonHelper.MapPath("wwwroot/Content/files/ExportImport");
             if (store == null)
                 throw new ArgumentNullException("store");
             string filePath = Path.Combine(appPath, store.Id + "-" + _googleShoppingSettings.StaticFileName);

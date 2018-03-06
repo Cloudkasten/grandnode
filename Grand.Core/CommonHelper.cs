@@ -8,9 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace Grand.Core
 {
@@ -174,7 +172,7 @@ namespace Grand.Core
             return true;
         }
 
-        public static TypeConverter GetNopCustomTypeConverter(Type type)
+        public static TypeConverter GetGrandCustomTypeConverter(Type type)
         {
             //we can't use the following code in order to register our custom type descriptors
             //TypeDescriptor.AddAttributes(typeof(List<int>), new TypeConverterAttribute(typeof(GenericListTypeConverter<int>)));
@@ -220,8 +218,8 @@ namespace Grand.Core
             {
                 var sourceType = value.GetType();
 
-                TypeConverter destinationConverter = GetNopCustomTypeConverter(destinationType);
-                TypeConverter sourceConverter = GetNopCustomTypeConverter(sourceType);
+                TypeConverter destinationConverter = GetGrandCustomTypeConverter(destinationType);
+                TypeConverter sourceConverter = GetGrandCustomTypeConverter(sourceType);
                 if (destinationConverter != null && destinationConverter.CanConvertFrom(value.GetType()))
                     return destinationConverter.ConvertFrom(null, culture, value);
                 if (sourceConverter != null && sourceConverter.CanConvertTo(destinationType))
@@ -308,5 +306,36 @@ namespace Grand.Core
         /// Gets or sets application base path
         /// </summary>
         internal static string BaseDirectory { get; set; }
+
+        /// <summary>
+        ///  Depth-first recursive delete, with handling for descendant directories open in Windows Explorer.
+        /// </summary>
+        /// <param name="path">Directory path</param>
+        public static void DeleteDirectory(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException(path);
+
+            //find more info about directory deletion
+            //and why we use this approach at https://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true
+
+            foreach (var directory in Directory.GetDirectories(path))
+            {
+                DeleteDirectory(directory);
+            }
+
+            try
+            {
+                Directory.Delete(path, true);
+            }
+            catch (IOException)
+            {
+                Directory.Delete(path, true);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Directory.Delete(path, true);
+            }
+        }
     }
 }

@@ -52,6 +52,8 @@ namespace Grand.Web.Services
         private readonly IOrderService _orderService;
         private readonly IDownloadService _downloadService;
         private readonly IPictureService _pictureService;
+        private readonly IProductService _productService;
+        private readonly IAuctionService _auctionService;
 
         private readonly CustomerSettings _customerSettings;
         private readonly DateTimeSettings _dateTimeSettings;
@@ -84,7 +86,8 @@ namespace Grand.Web.Services
                     IOrderService orderService,
                     IDownloadService downloadService,
                     IPictureService pictureService,
-
+                    IProductService productService,
+                    IAuctionService auctionService,
                     CustomerSettings customerSettings,
                     DateTimeSettings dateTimeSettings,
                     TaxSettings taxSettings,
@@ -116,7 +119,8 @@ namespace Grand.Web.Services
             this._orderService = orderService;
             this._downloadService = downloadService;
             this._pictureService = pictureService;
-
+            this._productService = productService;
+            this._auctionService = auctionService;
             this._customerSettings = customerSettings;
             this._dateTimeSettings = dateTimeSettings;
             this._taxSettings = taxSettings;
@@ -611,6 +615,7 @@ namespace Grand.Web.Services
                 _returnRequestService.SearchReturnRequests(_storeContext.CurrentStore.Id, _workContext.CurrentCustomer.Id, "", null, 0, 1).Count == 0;
             model.HideDownloadableProducts = _customerSettings.HideDownloadableProductsTab;
             model.HideBackInStockSubscriptions = _customerSettings.HideBackInStockSubscriptionsTab;
+            model.HideAuctions = _customerSettings.HideAuctionsTab;
             if (_vendorSettings.AllowVendorsToEditInfo && _workContext.CurrentVendor != null)
             {
                 model.ShowVendorInfo = true;
@@ -640,7 +645,6 @@ namespace Grand.Web.Services
 
             return model;
         }
-
         public virtual CustomerDownloadableProductsModel PrepareDownloadableProducts(string customerId)
         {
             var model = new CustomerDownloadableProductsModel();
@@ -698,7 +702,38 @@ namespace Grand.Web.Services
                 false);
 
             return model;
+        }
 
+        public virtual CustomerAuctionsModel PrepareAuctions(Customer customer)
+        {
+            var model = new CustomerAuctionsModel();
+            var priceFormatter = EngineContext.Current.Resolve<IPriceFormatter>();
+
+            var customerBids = _auctionService.GetBidsByCustomerId(customer.Id).GroupBy(x => x.ProductId);
+            foreach (var item in customerBids)
+            {
+                var product = _productService.GetProductById(item.Key);
+                if (product != null)
+                {
+                    var bid = new ProductBidTuple();
+                    bid.Ended = product.AuctionEnded;
+                    bid.OrderId = item.Where(x => x.Win && x.CustomerId == customer.Id).FirstOrDefault()?.OrderId;
+                    var amount = product.HighestBid;
+                    bid.CurrentBidAmount = priceFormatter.FormatPrice(amount);
+                    bid.CurrentBidAmountValue = amount;
+                    bid.HighestBidder = product.HighestBidder == customer.Id;
+                    bid.EndBidDate = product.AvailableEndDateTimeUtc.HasValue ? product.AvailableEndDateTimeUtc.Value : DateTime.MaxValue;
+                    bid.ProductName = product.GetLocalized(x => x.Name);
+                    bid.ProductSeName = product.GetSeName();
+                    bid.BidAmountValue = item.Max(x => x.Amount);
+                    bid.BidAmount = priceFormatter.FormatPrice(bid.BidAmountValue);
+                    model.ProductBidList.Add(bid);
+                }
+            }
+
+            model.CustomerId = customer.Id;
+
+            return model;
         }
 
     }

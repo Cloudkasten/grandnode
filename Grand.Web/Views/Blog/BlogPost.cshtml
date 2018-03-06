@@ -20,10 +20,10 @@
     <div class="card">
         @if (!string.IsNullOrEmpty(Model.PictureModel.ImageUrl))
         {
-            <img class="card-img-top img-fluid" alt="@Model.PictureModel.AlternateText" src="@Model.PictureModel.ImageUrl" title="@Model.PictureModel.Title">
+            <img class="card-img-top img-fluid p-3" alt="@Model.PictureModel.AlternateText" src="@Model.PictureModel.ImageUrl" title="@Model.PictureModel.Title">
         }
         <h4 class="card-header">@Model.Title</h4>
-        <div class="card-block">
+        <div class="card-body">
             <div class="post-date generalMarginSupporter text-muted">
                 <strong>@Model.CreatedOn.ToString("D")</strong>
             </div>
@@ -35,7 +35,7 @@
     </div>
 
 
-    @if (Model.Tags.Count > 0)
+    @if (Model.Tags.Any())
     {
         <div class="tags generalMarginSupporter">
             <label>@T("Blog.Tags"):</label>
@@ -80,7 +80,7 @@
                     </div>
             </form>
         </div>
-                    if (Model.Comments.Count > 0)
+                    if (Model.Comments.Any())
                     {
                         <div class="comment-list">
                             <h4 class="generalTitle generalMarginSupporter"><strong>@T("Blog.Comments")</strong></h4>
@@ -98,7 +98,7 @@
                                         }
 
 
-                                        <div class="card-block row">
+                                        <div class="card-body row">
                                             @if (!String.IsNullOrEmpty(comment.CustomerAvatarUrl))
                                             {
                                             <div class="col-12 col-xl-2 col-lg-3 col-sm-4 col-md-3 user-info">

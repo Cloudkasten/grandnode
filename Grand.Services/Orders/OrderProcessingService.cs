@@ -75,6 +75,8 @@ namespace Grand.Services.Orders
         private readonly IRewardPointsService _rewardPointsService;
         private readonly IReturnRequestService _returnRequestService;
         private readonly IStoreContext _storeContext;
+        private readonly IProductReservationService _productReservationService;
+        private readonly IAuctionService _auctionService;
         private readonly ShippingSettings _shippingSettings;
         private readonly PaymentSettings _paymentSettings;
         private readonly RewardPointsSettings _rewardPointsSettings;
@@ -87,47 +89,6 @@ namespace Grand.Services.Orders
 
         #region Ctor
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="orderService">Order service</param>
-        /// <param name="webHelper">Web helper</param>
-        /// <param name="localizationService">Localization service</param>
-        /// <param name="languageService">Language service</param>
-        /// <param name="productService">Product service</param>
-        /// <param name="paymentService">Payment service</param>
-        /// <param name="logger">Logger</param>
-        /// <param name="orderTotalCalculationService">Order total calculationservice</param>
-        /// <param name="priceCalculationService">Price calculation service</param>
-        /// <param name="priceFormatter">Price formatter</param>
-        /// <param name="productAttributeParser">Product attribute parser</param>
-        /// <param name="productAttributeFormatter">Product attribute formatter</param>
-        /// <param name="giftCardService">Gift card service</param>
-        /// <param name="shoppingCartService">Shopping cart service</param>
-        /// <param name="checkoutAttributeFormatter">Checkout attribute service</param>
-        /// <param name="shippingService">Shipping service</param>
-        /// <param name="shipmentService">Shipment service</param>
-        /// <param name="taxService">Tax service</param>
-        /// <param name="customerService">Customer service</param>
-        /// <param name="discountService">Discount service</param>
-        /// <param name="encryptionService">Encryption service</param>
-        /// <param name="workContext">Work context</param>
-        /// <param name="workflowMessageService">Workflow message service</param>
-        /// <param name="vendorService">Vendor service</param>
-        /// <param name="customerActivityService">Customer activity service</param>
-        /// <param name="currencyService">Currency service</param>
-        /// <param name="affiliateService">Affiliate service</param>
-        /// <param name="eventPublisher">Event published</param>
-        /// <param name="pdfService">PDF service</param>
-        /// <param name="storeContext"></param>
-        /// <param name="rewardPointsService">Reward points service</param>
-        /// <param name="paymentSettings">Payment settings</param>
-        /// <param name="shippingSettings">Shipping settings</param>
-        /// <param name="rewardPointsSettings">Reward points settings</param>
-        /// <param name="orderSettings">Order settings</param>
-        /// <param name="taxSettings">Tax settings</param>
-        /// <param name="localizationSettings">Localization settings</param>
-        /// <param name="currencySettings">Currency settings</param>
         public OrderProcessingService(IOrderService orderService,
             IWebHelper webHelper,
             ILocalizationService localizationService,
@@ -161,6 +122,8 @@ namespace Grand.Services.Orders
             IRewardPointsService rewardPointsService,
             IReturnRequestService returnRequestService,
             IStoreContext storeContext,
+            IProductReservationService productReservationService,
+            IAuctionService auctionService,
             ShippingSettings shippingSettings,
             PaymentSettings paymentSettings,
             RewardPointsSettings rewardPointsSettings,
@@ -202,6 +165,8 @@ namespace Grand.Services.Orders
             this._rewardPointsService = rewardPointsService;
             this._returnRequestService = returnRequestService;
             this._storeContext = storeContext;
+            this._productReservationService = productReservationService;
+            this._auctionService = auctionService;
             this._paymentSettings = paymentSettings;
             this._shippingSettings = shippingSettings;
             this._rewardPointsSettings = rewardPointsSettings;
@@ -383,7 +348,7 @@ namespace Grand.Services.Orders
             {
                 //load shopping cart
                 details.Cart = details.Customer.ShoppingCartItems
-                    .Where(sci => sci.ShoppingCartType == ShoppingCartType.ShoppingCart)
+                    .Where(sci => sci.ShoppingCartType == ShoppingCartType.ShoppingCart || sci.ShoppingCartType == ShoppingCartType.Auctions)
                     .LimitPerStore(processPaymentRequest.StoreId)
                     .ToList();
 
@@ -409,10 +374,7 @@ namespace Grand.Services.Orders
                 foreach (var sci in details.Cart)
                 {
                     var product = _productService.GetProductById(sci.ProductId);
-                    var sciWarnings = _shoppingCartService.GetShoppingCartItemWarnings(details.Customer, sci.ShoppingCartType,
-                        product, processPaymentRequest.StoreId, sci.AttributesXml,
-                        sci.CustomerEnteredPrice, sci.RentalStartDateUtc, sci.RentalEndDateUtc,
-                        sci.Quantity, false);
+                    var sciWarnings = _shoppingCartService.GetShoppingCartItemWarnings(details.Customer, sci, product, false);
                     if (sciWarnings.Any())
                     {
                         var warningsSb = new StringBuilder();
@@ -1270,6 +1232,9 @@ namespace Grand.Services.Orders
 
                     if (!processPaymentRequest.IsRecurringPayment)
                     {
+                        List<ProductReservation> reservationsToUpdate = new List<ProductReservation>();
+                        List<Bid> bidsToUpdate = new List<Bid>();
+
                         //move shopping cart items to order items
                         foreach (var sc in details.Cart)
                         {
@@ -1297,6 +1262,9 @@ namespace Grand.Services.Orders
 
                             //attributes
                             string attributeDescription = _productAttributeFormatter.FormatAttributes(product, sc.AttributesXml, details.Customer);
+
+                            if(string.IsNullOrEmpty(attributeDescription) && sc.ShoppingCartType == ShoppingCartType.Auctions)
+                                attributeDescription = _localizationService.GetResource("ShoppingCart.auctionwonon") + " " + product.AvailableEndDateTimeUtc;
 
                             var itemWeight = _shippingService.GetShoppingCartItemWeight(sc);
                             var warehouseId = store.DefaultWarehouseId;
@@ -1340,6 +1308,43 @@ namespace Grand.Services.Orders
                                 RentalEndDateUtc = sc.RentalEndDateUtc,
                                 CreatedOnUtc = DateTime.UtcNow,
                             };
+
+                            string reservationInfo = "";
+                            if (product.ProductType == ProductType.Reservation)
+                            {
+                                if (sc.RentalEndDateUtc == default(DateTime) || sc.RentalEndDateUtc == null)
+                                {
+                                    reservationInfo = sc.RentalStartDateUtc.ToString();
+                                }
+                                else
+                                {
+                                    reservationInfo = sc.RentalStartDateUtc + " - " + sc.RentalEndDateUtc;
+                                }
+                                if (!string.IsNullOrEmpty(sc.Parameter))
+                                {
+                                    reservationInfo += "<br>" + _localizationService.GetResource("Products.AdditionalOption") + ": " + sc.Parameter;
+                                }
+                                if (!string.IsNullOrEmpty(sc.Parameter))
+                                {
+                                    reservationInfo = sc.Parameter;
+                                }
+                                if (!string.IsNullOrEmpty(sc.Duration))
+                                {
+                                    reservationInfo += "<br>" + _localizationService.GetResource("Products.Duration") + ": " + sc.Duration;
+                                }
+                            }
+                            if (!string.IsNullOrEmpty(reservationInfo))
+                            {
+                                if (!string.IsNullOrEmpty(orderItem.AttributeDescription))
+                                {
+                                    orderItem.AttributeDescription += "<br>" + reservationInfo;
+                                }
+                                else
+                                {
+                                    orderItem.AttributeDescription = reservationInfo;
+                                }
+                            }
+
                             order.OrderItems.Add(orderItem);
 
                             _productService.UpdateSold(sc.ProductId, sc.Quantity);
@@ -1374,6 +1379,104 @@ namespace Grand.Services.Orders
                                 }
                             }
 
+                            //reservations
+                            if (product.ProductType == ProductType.Reservation)
+                            {
+                                if (!string.IsNullOrEmpty(sc.ReservationId))
+                                {
+                                    var reservation = _productReservationService.GetProductReservation(sc.ReservationId);
+                                    reservationsToUpdate.Add(reservation);
+                                }
+
+                                if (sc.RentalStartDateUtc.HasValue && sc.RentalEndDateUtc.HasValue)
+                                {
+                                    var reservations = _productReservationService.GetProductReservationsByProductId(product.Id, true, null);
+                                    var grouped = reservations.GroupBy(x => x.Resource);
+
+                                    IGrouping<string, ProductReservation> groupToBook = null;
+                                    foreach (var group in grouped)
+                                    {
+                                        bool groupCanBeBooked = true;
+                                        if (product.IncBothDate && product.IntervalUnitType == IntervalUnit.Day)
+                                        {
+                                            for (DateTime iterator = sc.RentalStartDateUtc.Value; iterator <= sc.RentalEndDateUtc.Value; iterator += new TimeSpan(24, 0, 0))
+                                            {
+                                                if (!group.Select(x => x.Date).Contains(iterator))
+                                                {
+                                                    groupCanBeBooked = false;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            for (DateTime iterator = sc.RentalStartDateUtc.Value; iterator < sc.RentalEndDateUtc.Value; iterator += new TimeSpan(24, 0, 0))
+                                            {
+                                                if (!group.Select(x => x.Date).Contains(iterator))
+                                                {
+                                                    groupCanBeBooked = false;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (groupCanBeBooked)
+                                        {
+                                            groupToBook = group;
+                                            break;
+                                        }
+                                    }
+
+                                    if (groupToBook == null)
+                                    {
+                                        throw new Exception("ShoppingCart.Reservation.Nofreereservationsinthisperiod");
+                                    }
+                                    else
+                                    {
+                                        var temp = groupToBook.AsQueryable();
+                                        if (product.IncBothDate && product.IntervalUnitType == IntervalUnit.Day)
+                                        {
+                                            temp = temp.Where(x => x.Date >= sc.RentalStartDateUtc && x.Date <= sc.RentalEndDateUtc);
+                                        }
+                                        else
+                                        {
+                                            temp = temp.Where(x => x.Date >= sc.RentalStartDateUtc && x.Date < sc.RentalEndDateUtc);
+                                        }
+
+                                        foreach (var item in temp)
+                                        {
+                                            item.OrderId = order.OrderGuid.ToString();
+                                            _productReservationService.UpdateProductReservation(item);
+                                        }
+
+                                        reservationsToUpdate.AddRange(temp);
+                                    }
+                                }
+                            }
+
+                            //auctions
+                            if (sc.ShoppingCartType == ShoppingCartType.Auctions)
+                            {
+                                var bid = _auctionService.GetBidsByProductId(product.Id).Where(x => x.Amount == product.HighestBid).FirstOrDefault();
+                                if (bid == null)
+                                    throw new ArgumentNullException("bid");
+
+                                bidsToUpdate.Add(bid);
+                            }
+
+                            if (product.ProductType == ProductType.Auction && sc.ShoppingCartType == ShoppingCartType.ShoppingCart)
+                            {
+                                _auctionService.UpdateAuctionEnded(product, true, true);
+                                _auctionService.UpdateHighestBid(product, product.Price, order.CustomerId);
+                                _workflowMessageService.SendAuctionEndedCustomerNotificationBin(product, order.CustomerId, order.CustomerLanguageId, order.StoreId);
+                                _auctionService.InsertBid(new Bid() { CustomerId = order.CustomerId, OrderId = order.Id, Amount = product.Price, Date = DateTime.UtcNow, ProductId = product.Id,
+                                    StoreId = order.StoreId, Win = true, Bin = true,
+                                });
+                            }
+                            if (product.ProductType == ProductType.Auction && _orderSettings.UnpublishAuctionProduct)
+                            {
+                                _productService.UnpublishProduct(product.Id);
+                            }
+
                             //inventory
                             _productService.AdjustInventory(product, -sc.Quantity, sc.AttributesXml, warehouseId);
                         }
@@ -1382,8 +1485,27 @@ namespace Grand.Services.Orders
                         _orderService.InsertOrder(order);
                         result.PlacedOrder = order;
 
+                        var reserved = _productReservationService.GetCustomerReservationsHelpers();
+                        foreach (var res in reserved)
+                        {
+                            _productReservationService.DeleteCustomerReservationsHelper(res);
+                        }
+
+                        foreach (var resToUpdate in reservationsToUpdate)
+                        {
+                            resToUpdate.OrderId = order.Id;
+                            _productReservationService.UpdateProductReservation(resToUpdate);
+                        }
+
+                        foreach (var bid in bidsToUpdate)
+                        {
+                            bid.OrderId = order.Id;
+                            _auctionService.UpdateBid(bid);
+                        }
                         //clear shopping cart
                         _customerService.ClearShoppingCartItem(details.Customer.Id, processPaymentRequest.StoreId, ShoppingCartType.ShoppingCart);
+                        _customerService.ClearShoppingCartItem(details.Customer.Id, processPaymentRequest.StoreId, ShoppingCartType.Auctions);
+
                         //product also purchased
                         _orderService.InsertProductAlsoPurchased(order);
 
@@ -1760,6 +1882,11 @@ namespace Grand.Services.Orders
                         _productService.AdjustInventory(product, orderItem.Quantity, orderItem.AttributesXml, orderItem.WarehouseId);
                 }
 
+                //cancel reservations
+                _productReservationService.CancelReservationsByOrderId(order.Id);
+
+                //cancel bid
+                _auctionService.CancelBidByOrder(order.Id);
             }
             //deactivate gift cards
             if (_orderSettings.DeactivateGiftCardsAfterDeletingOrder)
@@ -2163,6 +2290,13 @@ namespace Grand.Services.Orders
                 _productService.AdjustInventory(product, orderItem.Quantity, orderItem.AttributesXml, orderItem.WarehouseId);
             }
 
+            //cancel reservations
+            _productReservationService.CancelReservationsByOrderId(order.Id);
+
+            //cancel bid
+            _auctionService.CancelBidByOrder(order.Id);
+
+            //cancel discount
             _discountService.CancelDiscount(order.Id);
 
             _eventPublisher.Publish(new OrderCancelledEvent(order));
@@ -3001,11 +3135,15 @@ namespace Grand.Services.Orders
             {
                 if (_productService.GetProductById(orderItem.ProductId) != null)
                 {
-                    _shoppingCartService.AddToCart(customer, orderItem.ProductId,
-                        ShoppingCartType.ShoppingCart, order.StoreId,
-                        orderItem.AttributesXml, orderItem.UnitPriceExclTax,
-                        orderItem.RentalStartDateUtc, orderItem.RentalEndDateUtc,
-                        orderItem.Quantity, false);
+                    var product = _productService.GetProductById(orderItem.ProductId);
+                    if (product != null && product.ProductType == ProductType.SimpleProduct)
+                    {
+                        _shoppingCartService.AddToCart(customer, orderItem.ProductId,
+                            ShoppingCartType.ShoppingCart, order.StoreId,
+                            orderItem.AttributesXml, orderItem.UnitPriceExclTax,
+                            orderItem.RentalStartDateUtc, orderItem.RentalEndDateUtc,
+                            orderItem.Quantity, false);
+                    }
                 }
             }
         }

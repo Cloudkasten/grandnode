@@ -96,6 +96,10 @@ namespace Grand.Web.Infrastructure
             routeBuilder.MapLocalizedRoute("ChangeTaxType",
                             "changetaxtype/{customertaxtype}",
                             new { controller = "Common", action = "SetTaxType" });
+            //change store (AJAX link)
+            routeBuilder.MapLocalizedRoute("ChangeStore",
+                            "changestore/{store}",
+                            new { controller = "Common", action = "SetStore" });
 
             //recently viewed products
             routeBuilder.MapLocalizedRoute("RecentlyViewedProducts",
@@ -141,14 +145,21 @@ namespace Grand.Web.Infrastructure
 
             //add product to cart (without any attributes and options). used on catalog pages.
             routeBuilder.MapLocalizedRoute("AddProductToCart-Catalog",
-                            "addproducttocart/catalog/{productId}/{shoppingCartTypeId}/{quantity}",
+                            "addproducttocart/catalog/{productId}/{shoppingCartTypeId}",
                             new { controller = "ShoppingCart", action = "AddProductToCart_Catalog" },
-                            new { productId = @"\w+", shoppingCartTypeId = @"\d+", quantity = @"\d+" },
+                            new { productId = @"\w+", shoppingCartTypeId = @"\d+" },
                             new[] { "Grand.Web.Controllers" });
             //add product to cart (with attributes and options). used on the product details pages.
             routeBuilder.MapLocalizedRoute("AddProductToCart-Details",
                             "addproducttocart/details/{productId}/{shoppingCartTypeId}",
                             new { controller = "ShoppingCart", action = "AddProductToCart_Details" },
+                            new { productId = @"\w+", shoppingCartTypeId = @"\d+" },
+                            new[] { "Grand.Web.Controllers" });
+
+            //add product to bid, use on the product details page
+            routeBuilder.MapLocalizedRoute("AddBid",
+                            "addbid/AddBid/{productId}/{shoppingCartTypeId}",
+                            new { controller = "ShoppingCart", action = "AddBid" },
                             new { productId = @"\w+", shoppingCartTypeId = @"\d+" },
                             new[] { "Grand.Web.Controllers" });
 
@@ -236,7 +247,8 @@ namespace Grand.Web.Infrastructure
             //login page for checkout as guest
             routeBuilder.MapLocalizedRoute("LoginCheckoutAsGuest",
                             "login/checkoutasguest",
-                            new { controller = "Customer", action = "Login" });
+                            new { controller = "Customer", action = "Login", checkoutAsGuest = true });
+
             //register result page
             routeBuilder.MapLocalizedRoute("RegisterResult",
                             "registerresult/{resultId}",
@@ -304,6 +316,9 @@ namespace Grand.Web.Infrastructure
             routeBuilder.MapLocalizedRoute("CustomerAvatar",
                             "customer/avatar",
                             new { controller = "Customer", action = "Avatar" });
+            routeBuilder.MapLocalizedRoute("CustomerAuctions",
+                            "customer/auctions",
+                            new { controller = "Customer", action = "Auctions" });
             routeBuilder.MapLocalizedRoute("AccountActivation",
                             "customer/activation",
                             new { controller = "Customer", action = "AccountActivation" });
